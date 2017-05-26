@@ -1,4 +1,4 @@
-# 6QuiPrend
+# SixQuiPrend
 API implementation of small card game "6 Qui Prend".
 
 # Original Game
@@ -12,3 +12,4 @@ France (http://www.gigamic.com/jeu/6-qui-prend).
 * Resolve a turn
 * Count points
 * Statistics
+* Unit tests
