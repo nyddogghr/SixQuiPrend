@@ -7,6 +7,7 @@ setup(
     install_requires=[
         'flask',
         'sqlalchemy',
+        'psycopg2',
     ],
     setup_requires=[
         'pytest-runner',

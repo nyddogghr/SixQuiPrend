@@ -1,20 +1,19 @@
 import os
 from sixquiprend import sixquiprend
+from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
 import unittest
 import tempfile
 
 class SixquiprendTestCase(unittest.TestCase):
 
     def setUp(self):
-        self.db_fd, sixquiprend.app.config['DATABASE'] = tempfile.mkstemp()
+        sixquiprend.app.config['DATABASE_NAME'] = 'sixquiprend_test'
         sixquiprend.app.config['TESTING'] = True
         self.app = sixquiprend.app.test_client()
         with sixquiprend.app.app_context():
             sixquiprend.init_db()
-
-    def tearDown(self):
-        os.close(self.db_fd)
-        os.unlink(sixquiprend.app.config['DATABASE'])
+            sixquiprend.clean_db()
 
     def login(self, username, password):
         return self.app.post('/login', data=dict(

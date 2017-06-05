@@ -1,6 +1,7 @@
 # all the imports
 import os
-import sqlite3
+import psycopg2
+from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 from flask import Flask, request, session, g, redirect, url_for, abort, \
      render_template, flash
 from sqlalchemy import Column, ForeignKey, Integer, String
@@ -15,7 +16,10 @@ Base = declarative_base()
 
 # Load default config and override config from an environment variable
 app.config.update(dict(
-    DATABASE=os.path.join(app.root_path, 'sixquiprend.db'),
+    DATABASE_USER='sixquiprend',
+    DATABASE_PASSWORD='sixquiprend',
+    DATABASE_HOST='localhost',
+    DATABASE_NAME='sixquiprend',
     SECRET_KEY='development key',
     USERNAME='admin',
     PASSWORD='default'
@@ -30,13 +34,42 @@ class Entry(Base):
 
 def get_db():
     if not hasattr(g, 'db'):
-        engine = create_engine('sqlite:///' + app.config['DATABASE'])
+        db_path = app.config['DATABASE_USER'] + ':' + app.config['DATABASE_PASSWORD']
+        db_path += '@' + app.config['DATABASE_HOST'] + '/' + app.config['DATABASE_NAME']
+        engine = create_engine('postgresql+psycopg2://' + db_path)
         DBSession = sessionmaker(bind=engine)
         g.db = DBSession()
     return g.db
 
+def create_db():
+    try:
+        con = psycopg2.connect(dbname=app.config['DATABASE_NAME'],
+                user=app.config['DATABASE_USER'],
+                password=app.config['DATABASE_PASSWORD'],
+                host=app.config['DATABASE_HOST'])
+    except:
+        print('Database missing, creating it.')
+        con = psycopg2.connect(dbname='postgres',
+                user=app.config['DATABASE_USER'],
+                password=app.config['DATABASE_PASSWORD'],
+                host=app.config['DATABASE_HOST'])
+        con.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+        cur = con.cursor()
+        cur.execute('CREATE DATABASE ' + app.config['DATABASE_NAME'])
+        cur.close()
+        con.close()
+
+def clean_db():
+    print('Cleaning database!')
+    db = get_db()
+    db.query(Entry).delete()
+    db.commit()
+
 def init_db():
-    engine = create_engine('sqlite:///' + app.config['DATABASE'])
+    create_db()
+    db_path = app.config['DATABASE_USER'] + ':' + app.config['DATABASE_PASSWORD']
+    db_path += '@' + app.config['DATABASE_HOST'] + '/' + app.config['DATABASE_NAME']
+    engine = create_engine('postgresql+psycopg2://' + db_path)
     Base.metadata.create_all(engine)
 
 @app.cli.command('initdb')
