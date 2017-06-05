@@ -13,7 +13,6 @@ class SixquiprendTestCase(unittest.TestCase):
         self.app = sixquiprend.app.test_client()
         with sixquiprend.app.app_context():
             sixquiprend.init_db()
-            sixquiprend.clean_db()
 
     def login(self, username, password):
         return self.app.post('/login', data=dict(

@@ -59,12 +59,6 @@ def create_db():
         cur.close()
         con.close()
 
-def clean_db():
-    print('Cleaning database!')
-    db = get_db()
-    db.query(Entry).delete()
-    db.commit()
-
 def init_db():
     create_db()
     db_path = app.config['DATABASE_USER'] + ':' + app.config['DATABASE_PASSWORD']

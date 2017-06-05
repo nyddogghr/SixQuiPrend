@@ -1,2 +1,3 @@
 #!/bin/bash
+psql -U sixquiprend -c 'drop database sixquiprend_test'
 python setup.py test
