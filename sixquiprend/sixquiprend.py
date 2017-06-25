@@ -1,21 +1,16 @@
 # all the imports
-import os
 import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 from flask import Flask, request, session, g, redirect, url_for, abort, \
      render_template, flash
-from sqlalchemy import Column, ForeignKey, Integer, String
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship, sessionmaker
-from sqlalchemy import create_engine
+from flask_sqlalchemy import SQLAlchemy
 
-app = Flask(__name__) # create the application instance :)
+app = Flask(__name__)
 app.config.from_object(__name__) # load config from this file , sixquiprend.py
-
-Base = declarative_base()
 
 # Load default config and override config from an environment variable
 app.config.update(dict(
+    SQLALCHEMY_TRACK_MODIFICATIONS=False,
     DATABASE_USER='sixquiprend',
     DATABASE_PASSWORD='sixquiprend',
     DATABASE_HOST='localhost',
@@ -25,21 +20,23 @@ app.config.update(dict(
     PASSWORD='default'
 ))
 app.config.from_envvar('SIXQUIPREND_SETTINGS', silent=True)
+db_path = app.config['DATABASE_USER'] + ':' + app.config['DATABASE_PASSWORD']
+db_path += '@' + app.config['DATABASE_HOST'] + '/' + app.config['DATABASE_NAME']
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://' + db_path
 
-class Entry(Base):
-    __tablename__ = 'entries'
-    id = Column(Integer, primary_key=True)
-    title = Column(String(250), nullable=False)
-    text = Column(String(250), nullable=False)
+db = SQLAlchemy(app)
 
-def get_db():
-    if not hasattr(g, 'db'):
-        db_path = app.config['DATABASE_USER'] + ':' + app.config['DATABASE_PASSWORD']
-        db_path += '@' + app.config['DATABASE_HOST'] + '/' + app.config['DATABASE_NAME']
-        engine = create_engine('postgresql+psycopg2://' + db_path)
-        DBSession = sessionmaker(bind=engine)
-        g.db = DBSession()
-    return g.db
+class Entry(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(250), nullable=False)
+    text = db.Column(db.String(250), nullable=False)
+
+    def __init__(self, title, text):
+        self.title = title
+        self.text = text
+
+    def __repr__(self):
+        return '<Entry %r>' % self.title
 
 def create_db():
     try:
@@ -59,33 +56,33 @@ def create_db():
         cur.close()
         con.close()
 
-def init_db():
+@app.cli.command('create_db')
+def create_db_command():
     create_db()
-    db_path = app.config['DATABASE_USER'] + ':' + app.config['DATABASE_PASSWORD']
-    db_path += '@' + app.config['DATABASE_HOST'] + '/' + app.config['DATABASE_NAME']
-    engine = create_engine('postgresql+psycopg2://' + db_path)
-    Base.metadata.create_all(engine)
+    print('Created the database.')
 
-@app.cli.command('initdb')
-def initdb_command():
-    """Initializes the database."""
-    init_db()
+@app.cli.command('init_db')
+def init_db_command():
+    db.create_all()
     print('Initialized the database.')
+
+@app.cli.command('droptables')
+def drop_tables_command():
+    db.drop_all()
+    print('Dropped the tables.')
 
 @app.route('/')
 def show_entries():
-    db = get_db()
-    entries = db.query(Entry).all()
+    entries = Entry.query.all()
     return render_template('show_entries.html', entries=entries)
 
 @app.route('/add', methods=['POST'])
 def add_entry():
     if not session.get('logged_in'):
         abort(401)
-    db = get_db()
-    new_entry = Entry(title=request.form['title'], text=request.form['text'])
-    db.add(new_entry)
-    db.commit()
+    new_entry = Entry(request.form['title'], request.form['text'])
+    db.session.add(new_entry)
+    db.session.commit()
     flash('New entry was successfully posted')
     return redirect(url_for('show_entries'))
 

@@ -1,18 +1,29 @@
-import os
-from sixquiprend import sixquiprend
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
+from sixquiprend.sixquiprend import app, db
+from flask import Flask
 import unittest
-import tempfile
 
 class SixquiprendTestCase(unittest.TestCase):
 
     def setUp(self):
-        sixquiprend.app.config['DATABASE_NAME'] = 'sixquiprend_test'
-        sixquiprend.app.config['TESTING'] = True
-        self.app = sixquiprend.app.test_client()
-        with sixquiprend.app.app_context():
-            sixquiprend.init_db()
+        app.config['DATABASE_NAME'] = 'sixquiprend_test'
+        db_path = app.config['DATABASE_USER'] + ':' + app.config['DATABASE_PASSWORD']
+        db_path += '@' + app.config['DATABASE_HOST'] + '/' + app.config['DATABASE_NAME']
+        app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://' + db_path
+        app.config['TESTING'] = True
+        self.app = app.test_client()
+        with app.app_context():
+            db.create_all()
+
+    def tearDown(self):
+        app.config['DATABASE_NAME'] = 'sixquiprend_test'
+        db_path = app.config['DATABASE_USER'] + ':' + app.config['DATABASE_PASSWORD']
+        db_path += '@' + app.config['DATABASE_HOST'] + '/' + app.config['DATABASE_NAME']
+        app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://' + db_path
+        app.config['TESTING'] = True
+        self.app = app.test_client()
+        with app.app_context():
+            db.session.remove()
+            db.drop_all()
 
     def login(self, username, password):
         return self.app.post('/login', data=dict(

@@ -6,7 +6,7 @@ setup(
     include_package_data=True,
     install_requires=[
         'flask',
-        'sqlalchemy',
+        'flask-sqlalchemy',
         'psycopg2',
     ],
     setup_requires=[
