@@ -8,6 +8,7 @@ setup(
         'flask',
         'flask-sqlalchemy',
         'psycopg2',
+        'flask-user',
     ],
     setup_requires=[
         'pytest-runner',

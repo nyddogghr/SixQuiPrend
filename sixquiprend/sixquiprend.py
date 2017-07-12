@@ -4,9 +4,12 @@ from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 from flask import Flask, request, session, g, redirect, url_for, abort, \
      render_template, flash
 from flask_sqlalchemy import SQLAlchemy
+from flask_user import login_required, UserManager, UserMixin, SQLAlchemyAdapter
 
 app = Flask(__name__)
 app.config.from_object(__name__) # load config from this file , sixquiprend.py
+USERNAME = 'admin'
+PASSWORD = 'admin'
 
 # Load default config and override config from an environment variable
 app.config.update(dict(
@@ -17,7 +20,9 @@ app.config.update(dict(
     DATABASE_NAME='sixquiprend',
     SECRET_KEY='development key',
     USERNAME='admin',
-    PASSWORD='default'
+    PASSWORD='default',
+    USER_ENABLE_EMAIL=False,
+    USER_ENABLE_CONFIRM_EMAIL=False,
 ))
 app.config.from_envvar('SIXQUIPREND_SETTINGS', silent=True)
 db_path = app.config['DATABASE_USER'] + ':' + app.config['DATABASE_PASSWORD']
@@ -37,6 +42,19 @@ class Entry(db.Model):
 
     def __repr__(self):
         return '<Entry %r>' % self.title
+
+class User(db.Model, UserMixin):
+    id = db.Column(db.Integer, primary_key=True)
+    # User authentication information
+    username = db.Column(db.String(50), nullable=False, unique=True)
+    password = db.Column(db.String(255), nullable=False, server_default='')
+
+    def is_active(self):
+        return True
+
+# Setup Flask-User
+db_adapter = SQLAlchemyAdapter(db, User)        # Register the User model
+user_manager = UserManager(db_adapter, app)     # Initialize Flask-User
 
 def create_db():
     try:
@@ -64,9 +82,14 @@ def create_db_command():
 @app.cli.command('init_db')
 def init_db_command():
     db.create_all()
+    if not User.query.filter(User.username == USERNAME).first():
+        user = User(username=USERNAME,
+                password=app.user_manager.password_crypt_context.hash(PASSWORD))
+        db.session.add(user)
+        db.session.commit()
     print('Initialized the database.')
 
-@app.cli.command('droptables')
+@app.cli.command('drop_tables')
 def drop_tables_command():
     db.drop_all()
     print('Dropped the tables.')
@@ -77,31 +100,11 @@ def show_entries():
     return render_template('show_entries.html', entries=entries)
 
 @app.route('/add', methods=['POST'])
+@login_required
 def add_entry():
-    if not session.get('logged_in'):
-        abort(401)
+    print('Add')
     new_entry = Entry(request.form['title'], request.form['text'])
     db.session.add(new_entry)
     db.session.commit()
     flash('New entry was successfully posted')
-    return redirect(url_for('show_entries'))
-
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    error = None
-    if request.method == 'POST':
-        if request.form['username'] != app.config['USERNAME']:
-            error = 'Invalid username'
-        elif request.form['password'] != app.config['PASSWORD']:
-            error = 'Invalid password'
-        else:
-            session['logged_in'] = True
-            flash('You were logged in')
-            return redirect(url_for('show_entries'))
-    return render_template('login.html', error=error)
-
-@app.route('/logout')
-def logout():
-    session.pop('logged_in', None)
-    flash('You were logged out')
     return redirect(url_for('show_entries'))
