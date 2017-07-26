@@ -2,9 +2,10 @@
 import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 from flask import Flask, request, session, g, redirect, url_for, abort, \
-     render_template, flash
+     render_template, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
-from flask_user import login_required, UserManager, UserMixin, SQLAlchemyAdapter
+from flask_user import login_required, UserManager, UserMixin, \
+    SQLAlchemyAdapter, current_user
 
 app = Flask(__name__)
 app.config.from_object(__name__) # load config from this file , sixquiprend.py
@@ -43,6 +44,9 @@ class Entry(db.Model):
     def __repr__(self):
         return '<Entry %r>' % self.title
 
+    def serialize(self):
+        return {'title': self.title}
+
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
     # User authentication information
@@ -51,6 +55,9 @@ class User(db.Model, UserMixin):
 
     def is_active(self):
         return True
+
+    def __repr__(self):
+        return '<User %r>' % self.username
 
 # Setup Flask-User
 db_adapter = SQLAlchemyAdapter(db, User)        # Register the User model
@@ -95,16 +102,23 @@ def drop_tables_command():
     print('Dropped the tables.')
 
 @app.route('/')
+def get_index():
+    return render_template('index.html')
+
+@app.route('/entries')
 def show_entries():
     entries = Entry.query.all()
-    return render_template('show_entries.html', entries=entries)
+    return jsonify(entries=[e.serialize() for e in entries])
+
+@app.route('/current_user')
+def get_current_user():
+    is_logged_in = current_user.is_authenticated
+    return jsonify(is_logged_in=is_logged_in)
 
 @app.route('/add', methods=['POST'])
 @login_required
 def add_entry():
-    print('Add')
-    new_entry = Entry(request.form['title'], request.form['text'])
+    new_entry = Entry(request.json['title'], request.json['text'])
     db.session.add(new_entry)
     db.session.commit()
-    flash('New entry was successfully posted')
-    return redirect(url_for('show_entries'))
+    return jsonify(entry=new_entry.serialize())

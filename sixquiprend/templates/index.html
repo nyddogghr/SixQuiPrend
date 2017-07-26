@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html ng-app="SixQuiPrendApp">
+	<head>
+		<title>SixQuiPrend</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<!-- styles -->
+		<link href="//netdna.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" rel="stylesheet" media="screen">
+		<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
+	</head>
+	<body ng-controller="SixQuiPrendController">
+    {% raw %}
+    <a href='/user/sign-in' ng-if="!is_logged_in">
+      login
+    </a>
+    <a href='/user/sign-out' ng-if="is_logged_in">
+      logout
+    </a>
+		<br><br>
+    Entries:
+    <div ng-repeat="entry in entries">
+      {{entry.title}}
+    </div>
+    <br>
+    Add entry:
+    <form>
+      <input type="text" ng-model="new_entry.title" placeholder="title"/>
+      <input type="text" ng-model="new_entry.text" placeholder="text"/>
+      <button ng-click="add_entry(new_entry)">
+        Create
+      </button>
+    </form>
+    {% endraw %}
+		<!-- scripts -->
+		<script src="//d3js.org/d3.v3.min.js" charset="utf-8"></script>
+		<script src="//code.jquery.com/jquery-2.2.1.min.js"></script>
+		<script src="//netdna.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+		<script src="//ajax.googleapis.com/ajax/libs/angularjs/1.4.5/angular.min.js"></script>
+		<script src="{{ url_for('static', filename='main.js') }}"></script>
+	</body>
+</html>
