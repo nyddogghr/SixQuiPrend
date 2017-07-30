@@ -16,6 +16,25 @@
           });
         };
 
+        $scope.login = function() {
+          $http.post('/login', {
+            username: $scope.username || 'admin',
+            password: $scope.password || 'admin'
+          })
+          .then(function(response) {
+            $scope.is_logged_in = response.data.status;
+            console.log(response);
+          });
+        };
+
+        $scope.logout = function() {
+          $http.post('/logout')
+          .then(function(response) {
+            $scope.is_logged_in = false;
+            console.log(response);
+          });
+        };
+
         $http.get('/current_user')
         .then(function(response) {
           $scope.is_logged_in = response.data.is_logged_in;

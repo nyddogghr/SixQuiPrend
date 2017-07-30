@@ -9,10 +9,16 @@
 	</head>
 	<body ng-controller="SixQuiPrendController">
     {% raw %}
-    <a href='/user/sign-in' ng-if="!is_logged_in">
-      login
-    </a>
-    <a href='/user/sign-out' ng-if="is_logged_in">
+    <div ng-if="!is_logged_in">
+      <form>
+        <input type=text ng-model="username"/>
+        <input type=text ng-model="password"/>
+      </form>
+      <a ng-click="login()">
+        login
+      </a>
+    </div>
+    <a href='' ng-click="logout()" ng-if="is_logged_in">
       logout
     </a>
 		<br><br>

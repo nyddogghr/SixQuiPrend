@@ -4,8 +4,10 @@ from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 from flask import Flask, request, session, g, redirect, url_for, abort, \
      render_template, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
-from flask_user import login_required, UserManager, UserMixin, \
-    SQLAlchemyAdapter, current_user
+from flask_login import LoginManager, UserMixin, login_required, current_user, \
+     login_user, logout_user
+from passlib.hash import bcrypt
+
 
 app = Flask(__name__)
 app.config.from_object(__name__) # load config from this file , sixquiprend.py
@@ -22,8 +24,6 @@ app.config.update(dict(
     SECRET_KEY='development key',
     USERNAME='admin',
     PASSWORD='default',
-    USER_ENABLE_EMAIL=False,
-    USER_ENABLE_CONFIRM_EMAIL=False,
 ))
 app.config.from_envvar('SIXQUIPREND_SETTINGS', silent=True)
 db_path = app.config['DATABASE_USER'] + ':' + app.config['DATABASE_PASSWORD']
@@ -47,21 +47,42 @@ class Entry(db.Model):
     def serialize(self):
         return {'title': self.title}
 
-class User(db.Model, UserMixin):
+class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     # User authentication information
     username = db.Column(db.String(50), nullable=False, unique=True)
     password = db.Column(db.String(255), nullable=False, server_default='')
+    authenticated = db.Column(db.Boolean, default=False)
 
     def is_active(self):
+        """True, as all users are active."""
         return True
+
+    def get_id(self):
+        """Return the username to satisfy Flask-Login's requirements."""
+        return self.username
+
+    def is_authenticated(self):
+        """Return True if the user is authenticated."""
+        return self.authenticated
+
+    def is_anonymous(self):
+        """False, as anonymous users aren't supported."""
+        return False
+
+    def verify_password(self, password):
+        return bcrypt.verify(password, self.password)
 
     def __repr__(self):
         return '<User %r>' % self.username
 
-# Setup Flask-User
-db_adapter = SQLAlchemyAdapter(db, User)        # Register the User model
-user_manager = UserManager(db_adapter, app)     # Initialize Flask-User
+# Setup Flask-Login
+login_manager = LoginManager()
+login_manager.init_app(app)
+
+@login_manager.user_loader
+def load_user(username):
+    return User.query.filter(User.username == username).first()
 
 def create_db():
     try:
@@ -91,7 +112,7 @@ def init_db_command():
     db.create_all()
     if not User.query.filter(User.username == USERNAME).first():
         user = User(username=USERNAME,
-                password=app.user_manager.password_crypt_context.hash(PASSWORD))
+                password=bcrypt.encrypt(PASSWORD))
         db.session.add(user)
         db.session.commit()
     print('Initialized the database.')
@@ -105,6 +126,32 @@ def drop_tables_command():
 def get_index():
     return render_template('index.html')
 
+@app.route("/login", methods=["POST"])
+def login():
+    user = User.query.filter(User.username == request.json['username']).first()
+    if user:
+        if user.verify_password(request.json['password']):
+            user.authenticated = True
+            db.session.add(user)
+            db.session.commit()
+            login_user(user, remember=True)
+            return jsonify(status=True)
+        else:
+            return jsonify(status=False)
+    else:
+        return jsonify(status=False)
+
+@app.route("/logout", methods=["POST"])
+@login_required
+def logout():
+    """Logout the current user."""
+    user = current_user
+    user.authenticated = False
+    db.session.add(user)
+    db.session.commit()
+    logout_user()
+    return jsonify(status=False)
+
 @app.route('/entries')
 def show_entries():
     entries = Entry.query.all()
@@ -112,8 +159,10 @@ def show_entries():
 
 @app.route('/current_user')
 def get_current_user():
-    is_logged_in = current_user.is_authenticated
-    return jsonify(is_logged_in=is_logged_in)
+    if current_user.is_authenticated:
+        return jsonify(is_logged_in=True)
+    else:
+        return jsonify(is_logged_in=False)
 
 @app.route('/add', methods=['POST'])
 @login_required
