@@ -31,7 +31,16 @@ def populate_db():
         print('Added admin user')
     if Card.query.count() == 0:
         for i in range(1, 105):
-            card = Card(number=i, cow_value=2*i)
+            cow_value = 0
+            if i % 10 == 5:
+                cow_value += 2
+            if i % 10 == 0:
+                cow_value += 3
+            if i % 11 == 0:
+                cow_value += 5
+            if cow_value == 0:
+                cow_value = 1
+            card = Card(number=i, cow_value=cow_value)
             db.session.add(card)
         db.session.commit()
         print('Added cards')
