@@ -41,3 +41,4 @@ France (http://www.gigamic.com/jeu/6-qui-prend).
 * Count points
 * Statistics
 * Unit tests
+* Add a validation from admin to create users (prevent spam), or anything else
