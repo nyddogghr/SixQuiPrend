@@ -1,12 +1,19 @@
 from sixquiprend.sixquiprend import db
 from passlib.hash import bcrypt
 
+user_games = db.Table('user_games',
+        db.Column('user_id', db.Integer, db.ForeignKey('user.id')),
+        db.Column('game_id', db.Integer, db.ForeignKey('game.id'))
+)
+
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     # User authentication information
     username = db.Column(db.String(50), nullable=False, unique=True)
     password = db.Column(db.String(255), nullable=False, server_default='')
     authenticated = db.Column(db.Boolean, default=False)
+    games = db.relationship('Game', secondary=user_games,
+            backref=db.backref('users', lazy='dynamic'))
 
     def is_active(self):
         """True, as all users are active."""
@@ -45,3 +52,40 @@ class Card(db.Model):
     def serialize(self):
         return {'number': self.number, 'cow_value': self.cow_value}
 
+class Game(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+
+column_cards = db.Table('column_cards',
+        db.Column('column_id', db.Integer, db.ForeignKey('column.id')),
+        db.Column('card_id', db.Integer, db.ForeignKey('card.id'))
+)
+
+class Column(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    game_id = db.Column(db.Integer, db.ForeignKey('game.id'))
+    cards = db.relationship('Card', secondary=column_cards,
+            backref=db.backref('columns', lazy='dynamic'))
+
+hand_cards = db.Table('hand_cards',
+        db.Column('hand_id', db.Integer, db.ForeignKey('hand.id')),
+        db.Column('card_id', db.Integer, db.ForeignKey('card.id'))
+)
+
+class Hand(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    game_id = db.Column(db.Integer, db.ForeignKey('game.id'))
+    cards = db.relationship('Card', secondary=hand_cards,
+            backref=db.backref('hands', lazy='dynamic'))
+
+heap_cards = db.Table('heap_cards',
+        db.Column('heap_id', db.Integer, db.ForeignKey('heap.id')),
+        db.Column('card_id', db.Integer, db.ForeignKey('card.id'))
+)
+
+class Heap(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    game_id = db.Column(db.Integer, db.ForeignKey('game.id'))
+    cards = db.relationship('Card', secondary=heap_cards,
+            backref=db.backref('heaps', lazy='dynamic'))
