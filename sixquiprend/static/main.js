@@ -7,19 +7,23 @@
     .controller('SixQuiPrendController', ['$scope', '$log', '$http', '$timeout',
       function($scope, $log, $http, $timeout) {
 
-        $scope.entries = [];
+        $scope.cards = [];
+        $scope.user = {
+          username: 'admin',
+          password: 'admin'
+        };
 
-        $scope.get_entries = function() {
-          $http.get('/entries')
+        $scope.get_cards = function() {
+          $http.get('/cards')
           .then(function(response) {
-            $scope.entries = response.data.entries;
+            $scope.cards = response.data.cards;
           });
         };
 
-        $scope.login = function() {
+        $scope.login = function(user) {
           $http.post('/login', {
-            username: $scope.username || 'admin',
-            password: $scope.password || 'admin'
+            username: user.username,
+            password: user.password
           })
           .then(function(response) {
             $scope.is_logged_in = response.data.status;
@@ -42,16 +46,8 @@
           $scope.is_logged_in = false;
         });
 
-        $scope.add_entry = function(new_entry) {
-          $http.post('/add', {
-            title: new_entry.title,
-            text: new_entry.text
-          }).then(function(response) {
-            $scope.get_entries();
-          });
-        };
 
-        $scope.get_entries();
+        $scope.get_cards();
 
       }])
 }());

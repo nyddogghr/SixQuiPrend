@@ -10,31 +10,21 @@
 	<body ng-controller="SixQuiPrendController">
     {% raw %}
     <div ng-if="!is_logged_in">
-      <form>
-        <input type=text ng-model="username"/>
-        <input type=text ng-model="password"/>
+      <form novalidate>
+        <input type=text ng-model="user.username"/>
+        <input type=text ng-model="user.password"/>
+        <input type="submit" ng-click="login(user)" value="Login" />
       </form>
-      <a ng-click="login()">
-        login
-      </a>
     </div>
-    <a href='' ng-click="logout()" ng-if="is_logged_in">
-      logout
-    </a>
+    <button ng-click="logout()" ng-if="is_logged_in">
+      Logout
+    </button>
 		<br><br>
-    Entries:
-    <div ng-repeat="entry in entries">
-      {{entry.title}}
+    Cards:
+    <div ng-repeat="card in cards">
+      {{card.number}}: {{card.cow_value}} cows
     </div>
     <br>
-    Add entry:
-    <form>
-      <input type="text" ng-model="new_entry.title" placeholder="title"/>
-      <input type="text" ng-model="new_entry.text" placeholder="text"/>
-      <button ng-click="add_entry(new_entry)">
-        Create
-      </button>
-    </form>
     {% endraw %}
 		<!-- scripts -->
 		<script src="//d3js.org/d3.v3.min.js" charset="utf-8"></script>
