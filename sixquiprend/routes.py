@@ -35,6 +35,18 @@ def logout():
     logout_user()
     return jsonify(status=False)
 
+@app.route("/register", methods=["POST"])
+def register():
+    user = User.query.filter(User.username == request.json['username']).first()
+    if not user:
+        user = User(username=request.json['username'],
+                password=bcrypt.encrypt(request.json['password']))
+        db.session.add(user)
+        db.session.commit()
+        return jsonify(status=True)
+    else:
+        return jsonify(status=False)
+
 @app.route('/cards')
 def show_cards():
     cards = Card.query.all()

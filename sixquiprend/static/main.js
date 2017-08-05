@@ -31,6 +31,16 @@
           });
         };
 
+        $scope.register = function(user) {
+          $http.post('/register', {
+            username: user.username,
+            password: user.password
+          })
+          .then(function(response) {
+            console.log(response);
+          });
+        };
+
         $scope.logout = function() {
           $http.post('/logout')
           .then(function(response) {
