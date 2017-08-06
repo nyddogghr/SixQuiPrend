@@ -24,9 +24,10 @@ def create_db():
 
 def populate_db():
     if not User.query.filter(User.username == app.config['USERNAME']).first():
-        user = User(username=app.config['USERNAME'],
-                password=bcrypt.encrypt(app.config['PASSWORD']))
-        db.session.add(user)
+        admin = User(username=app.config['USERNAME'],
+                password=bcrypt.encrypt(app.config['PASSWORD']),
+                admin=True, active=True)
+        db.session.add(admin)
         db.session.commit()
         print('Added admin user')
     if Card.query.count() == 0:
@@ -63,6 +64,7 @@ def init_db_command():
 
 @app.cli.command('drop_tables')
 def drop_tables_command():
+    db.reflect()
     db.drop_all()
     print('Dropped the tables.')
 

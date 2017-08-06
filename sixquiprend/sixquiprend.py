@@ -20,3 +20,7 @@ login_manager.init_app(app)
 @login_manager.user_loader
 def load_user(username):
     return User.query.filter(User.username == username).first()
+
+@login_manager.unauthorized_handler
+def unauthorized():
+    return jsonify(error='Unauthorized'), 401

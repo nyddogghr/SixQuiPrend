@@ -12,12 +12,18 @@ class User(db.Model):
     username = db.Column(db.String(50), nullable=False, unique=True)
     password = db.Column(db.String(255), nullable=False, server_default='')
     authenticated = db.Column(db.Boolean, default=False)
+    active = db.Column(db.Boolean, default=False)
+    admin = db.Column(db.Boolean, default=False)
     games = db.relationship('Game', secondary=user_games,
             backref=db.backref('users', lazy='dynamic'))
 
     def is_active(self):
-        """True, as all users are active."""
-        return True
+        """Return True if the user is active."""
+        return self.active
+
+    def is_admin(self):
+        """Return True if the user is admin."""
+        return self.admin
 
     def get_id(self):
         """Return the username to satisfy Flask-Login's requirements."""
@@ -34,8 +40,8 @@ class User(db.Model):
     def verify_password(self, password):
         return bcrypt.verify(password, self.password)
 
-    def __repr__(self):
-        return '<User %r>' % self.username
+    def serialize(self):
+        return {'id': self.id, 'username': self.username}
 
 class Card(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -46,14 +52,14 @@ class Card(db.Model):
         self.number = number
         self.cow_value = cow_value
 
-    def __repr__(self):
-        return '<Card %i: %i cows>' % self.number, self.cow_value
-
     def serialize(self):
         return {'number': self.number, 'cow_value': self.cow_value}
 
 class Game(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+
+    def serialize(self):
+        return { 'id': self.id, 'players': [u.serialize() for u in self.users.all()] }
 
 column_cards = db.Table('column_cards',
         db.Column('column_id', db.Integer, db.ForeignKey('column.id')),

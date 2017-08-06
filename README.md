@@ -20,6 +20,7 @@ France (http://www.gigamic.com/jeu/6-qui-prend).
 * Register user
 * Get all users (if admin)
 * Activate/deactivate a user (if admin)
+* Delete a user
 * Get all games
 * Get a game result
 * Delete a game
