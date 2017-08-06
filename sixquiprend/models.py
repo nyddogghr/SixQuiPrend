@@ -56,7 +56,12 @@ class Card(db.Model):
         return {'number': self.number, 'cow_value': self.cow_value}
 
 class Game(db.Model):
+    CREATED = 0
+    STARTED = 1
+    FINISHED = 2
+
     id = db.Column(db.Integer, primary_key=True)
+    status = db.Column(db.Integer, nullable=False, default=Game.CREATED)
 
     def serialize(self):
         return { 'id': self.id, 'players': [u.serialize() for u in self.users.all()] }
@@ -95,3 +100,9 @@ class Heap(db.Model):
     game_id = db.Column(db.Integer, db.ForeignKey('game.id'))
     cards = db.relationship('Card', secondary=heap_cards,
             backref=db.backref('heaps', lazy='dynamic'))
+
+class ChosenCard(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    game_id = db.Column(db.Integer, db.ForeignKey('game.id'))
+    card_id = db.Column(db.Integer, db.ForeignKey('card.id'))

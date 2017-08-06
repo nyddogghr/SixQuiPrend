@@ -122,29 +122,43 @@ def create_game():
     db.session.commit()
     return jsonify(game=game.serialize())
 
-@app.route('/games/enter', methods=['POST'])
+@app.route('/games/<int:game_id>/enter', methods=['POST'])
 @login_required
-def enter_game():
+def enter_game(game_id):
     game = Game.query.get(game_id)
+    if not game:
+        return jsonify(error='No game found'), 404
+    if game.status != Game.CREATED:
+        return jsonify(error='Cannot enter already started game'), 400
     game.users.append(current_user)
     db.session.add(game)
     db.session.commit()
     return jsonify(game=game.serialize())
 
-@app.route('/games/leave', methods=['POST'])
+@app.route('/games/<int:game_id>/leave', methods=['POST'])
 @login_required
-def leave_game():
+def leave_game(game_id):
     game = Game.query.get(game_id)
-    game.users.append(current_user)
+    if not game:
+        return jsonify(error='No game found'), 404
+    if current_user not in game.users:
+        return jsonify(error='Not in game'), 400
+    game.users.remove(current_user)
     db.session.add(game)
     db.session.commit()
     return jsonify(game=game.serialize())
 
-@app.route('/games/start', methods=['PUT'])
+@app.route('/games/<int:game_id>/start', methods=['PUT'])
 @login_required
-def start_game():
+def start_game(game_id):
     game = Game.query.get(game_id)
-    game.users.append(current_user)
+    if not game:
+        return jsonify(error='No game found'), 404
+    if not game.status != Game.CREATED:
+        return jsonify(error='Cannot start an already started game'), 400
+    if game.users.length < 2:
+        return jsonify(error='Cannot start game with less than 2 players'), 400
+    game.status = Game.STARTED
     db.session.add(game)
     db.session.commit()
     return jsonify(game=game.serialize())
@@ -153,52 +167,71 @@ def start_game():
 @login_required
 def get_game_columns(game_id):
     game = Game.query.get(game_id)
-    game.users.append(current_user)
-    db.session.add(game)
-    db.session.commit()
-    return jsonify(game=game.serialize())
+    if not game:
+        return jsonify(error='No game found'), 404
+    columns = Column.query.filter(game_id=game_id).all()
+    return jsonify(columns=[c.serialize() for c in columns])
 
 @app.route('/games/<int:game_id>/users')
 @login_required
 def get_game_users(game_id):
     game = Game.query.get(game_id)
-    game.users.append(current_user)
-    db.session.add(game)
-    db.session.commit()
-    return jsonify(game=game.serialize())
+    if not game:
+        return jsonify(error='No game found'), 404
+    return jsonify(game=[u.serialize() for u in game.users])
 
 @app.route('/games/<int:game_id>/users/<int:user_id>/status')
 @login_required
 def get_user_game_status(game_id, user_id):
     game = Game.query.get(game_id)
-    game.users.append(current_user)
-    db.session.add(game)
-    db.session.commit()
-    return jsonify(game=game.serialize())
+    if not game:
+        return jsonify(error='No game found'), 404
+    user = game.users.query.get(id=user_id)
+    if not user:
+        return jsonify(error='No user found'), 404
+    response = user.serialize()
+    response['chosen_card'] = ChosenCard.query.filter(
+            user_id=user_id,
+            game_id=game_id).count()
+    return jsonify(user=response)
 
 @app.route('/games/<int:game_id>/users/<int:user_id>/heaps')
 @login_required
 def get_user_game_heaps(game_id, user_id):
     game = Game.query.get(game_id)
-    game.users.append(current_user)
-    db.session.add(game)
-    db.session.commit()
-    return jsonify(game=game.serialize())
+    if not game:
+        return jsonify(error='No game found'), 404
+    user = game.users.query.get(id=user_id)
+    if not user:
+        return jsonify(error='No user found'), 404
+    heaps = Heap.query.filter(game_id=game_id, user_id=user_id).all()
+    return jsonify(heaps=[h.serialize() for h in heaps])
 
 @app.route('/games/<int:game_id>/users/<int:user_id>/hand')
 @login_required
 def get_user_game_hand(game_id, user_id):
     game = Game.query.get(game_id)
-    game.users.append(current_user)
-    db.session.add(game)
-    db.session.commit()
+    if not game:
+        return jsonify(error='No game found'), 404
+    user = game.users.query.get(id=user_id)
+    if not user:
+        return jsonify(error='No user found'), 404
     return jsonify(game=game.serialize())
 
 @app.route('/games/<int:game_id>/card/<int:card_id>', methods=['POST'])
 @login_required
 def choose_card_for_game(game_id, card_id):
     game = Game.query.get(game_id)
-    game.users.append(current_user)
-    db.session.add(game)
+    if not game:
+        return jsonify(error='No game found'), 404
+    user = game.users.query.get(id=user_id)
+    if not user:
+        return jsonify(error='No user found'), 404
+    if ChosenCard.query.filter(game_id=game_id,
+            user_id=current_user.id).count() > 0:
+        return jsonify(error='Card already chosen'), 400
+    chosen_card = ChosenCard(game_id=game_id, user_id=current_user.id,
+            card_id=card_id)
+    db.session.add(chosen_card)
     db.session.commit()
-    return jsonify(game=game.serialize())
+    return jsonify(chosen_card=chosen_card.serialize())
