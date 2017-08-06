@@ -108,10 +108,96 @@ def get_games():
     games = Game.query.all()
     return jsonify(games=[g.serialize() for g in games])
 
+@app.route('/games/<int:game_id>')
+def get_game(game_id):
+    game = Game.query.get(game_id)
+    return jsonify(game=game.serialize())
+
 @app.route('/games', methods=['POST'])
 @login_required
 def create_game():
     game = Game()
+    game.users.append(current_user)
+    db.session.add(game)
+    db.session.commit()
+    return jsonify(game=game.serialize())
+
+@app.route('/games/enter', methods=['POST'])
+@login_required
+def enter_game():
+    game = Game.query.get(game_id)
+    game.users.append(current_user)
+    db.session.add(game)
+    db.session.commit()
+    return jsonify(game=game.serialize())
+
+@app.route('/games/leave', methods=['POST'])
+@login_required
+def leave_game():
+    game = Game.query.get(game_id)
+    game.users.append(current_user)
+    db.session.add(game)
+    db.session.commit()
+    return jsonify(game=game.serialize())
+
+@app.route('/games/start', methods=['PUT'])
+@login_required
+def start_game():
+    game = Game.query.get(game_id)
+    game.users.append(current_user)
+    db.session.add(game)
+    db.session.commit()
+    return jsonify(game=game.serialize())
+
+@app.route('/games/<int:game_id>/columns')
+@login_required
+def get_game_columns(game_id):
+    game = Game.query.get(game_id)
+    game.users.append(current_user)
+    db.session.add(game)
+    db.session.commit()
+    return jsonify(game=game.serialize())
+
+@app.route('/games/<int:game_id>/users')
+@login_required
+def get_game_users(game_id):
+    game = Game.query.get(game_id)
+    game.users.append(current_user)
+    db.session.add(game)
+    db.session.commit()
+    return jsonify(game=game.serialize())
+
+@app.route('/games/<int:game_id>/users/<int:user_id>/status')
+@login_required
+def get_user_game_status(game_id, user_id):
+    game = Game.query.get(game_id)
+    game.users.append(current_user)
+    db.session.add(game)
+    db.session.commit()
+    return jsonify(game=game.serialize())
+
+@app.route('/games/<int:game_id>/users/<int:user_id>/heaps')
+@login_required
+def get_user_game_heaps(game_id, user_id):
+    game = Game.query.get(game_id)
+    game.users.append(current_user)
+    db.session.add(game)
+    db.session.commit()
+    return jsonify(game=game.serialize())
+
+@app.route('/games/<int:game_id>/users/<int:user_id>/hand')
+@login_required
+def get_user_game_hand(game_id, user_id):
+    game = Game.query.get(game_id)
+    game.users.append(current_user)
+    db.session.add(game)
+    db.session.commit()
+    return jsonify(game=game.serialize())
+
+@app.route('/games/<int:game_id>/card/<int:card_id>', methods=['POST'])
+@login_required
+def choose_card_for_game(game_id, card_id):
+    game = Game.query.get(game_id)
     game.users.append(current_user)
     db.session.add(game)
     db.session.commit()
