@@ -1,5 +1,6 @@
 from sixquiprend.sixquiprend import db
 from passlib.hash import bcrypt
+import math
 
 user_games = db.Table('user_games',
         db.Column('user_id', db.Integer, db.ForeignKey('user.id')),
@@ -76,6 +77,29 @@ class Game(db.Model):
                 'users': self.users.all(),
                 'status': self.status
                 }
+
+    def resolve_turn(self):
+        chosen_cards = self.chosen_cards.join(cards, chosen_cards.card_id==cards.id) \
+                        .order_by(model.Card.number.asc()).all()
+        for chosen_card in chosen_cards:
+            diff = 104
+            for column in self.columns.all():
+                last_card = columns.cards.order_by(model.Card.number.asc()).last()
+                diff_temp = math.fabs(last_card.number - chosen_card.number)
+                if diff_temp < diff:
+                    diff = diff_temp
+                    chosen_column = column
+            if chosen_column.cards.count() == 5:
+                user_game_heap = chosen_card.user.heaps.query.filter(game_id=self.id).first()
+                user_game_heap.cards.append(chosen_column.cards)
+                db.session.add(user_game_heap)
+                chosen_column.cards = []
+                db.session.add(chosen_column)
+                db.session.commit()
+            chosen_column.cards.append(chosen_cards.card)
+            db.session.add(chosen_column)
+            db.session.commit()
+
 
 column_cards = db.Table('column_cards',
         db.Column('column_id', db.Integer, db.ForeignKey('column.id')),
