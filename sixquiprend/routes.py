@@ -20,11 +20,11 @@ def get_index():
 
 @app.route('/login', methods=['POST'])
 def login():
-    user = User.query.filter(User.username == request.json['username']).first()
+    user = User.query.filter(User.username == request.get_json()['username']).first()
     if user:
         if not user.is_active:
             return jsonify(logged_in=False, error='User is inactive'), 400
-        if user.verify_password(request.json['password']):
+        if user.verify_password(request.get_json()['password']):
             user.authenticated = True
             db.session.add(user)
             db.session.commit()
@@ -48,10 +48,10 @@ def logout():
 
 @app.route('/register', methods=['POST'])
 def register():
-    user = User.query.filter(User.username == request.json['username']).first()
+    user = User.query.filter(User.username == request.get_json()['username']).first()
     if not user:
-        user = User(username=request.json['username'],
-                password=bcrypt.encrypt(request.json['password']))
+        user = User(username=request.get_json()['username'],
+                password=bcrypt.encrypt(request.get_json()['password']))
         db.session.add(user)
         db.session.commit()
         return jsonify(registered=True)
