@@ -34,6 +34,7 @@ France (http://www.gigamic.com/jeu/6-qui-prend).
 * Get a player's heap for a game
 * Get current player's hand
 * Choose a card from current player's hand
+* Choose a column if noone suits the chosen card
 
 # TODO
 * Choose cards for a player

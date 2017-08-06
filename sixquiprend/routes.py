@@ -20,7 +20,8 @@ def get_index():
 
 @app.route('/login', methods=['POST'])
 def login():
-    user = User.query.filter(User.username == request.get_json()['username']).first()
+    user = User.query \
+            .filter(User.username == request.get_json()['username']).first()
     if user:
         if not user.is_active:
             return jsonify(logged_in=False, error='User is inactive'), 400
@@ -48,7 +49,8 @@ def logout():
 
 @app.route('/register', methods=['POST'])
 def register():
-    user = User.query.filter(User.username == request.get_json()['username']).first()
+    user = User.query \
+            .filter(User.username == request.get_json()['username']).first()
     if not user:
         user = User(username=request.get_json()['username'],
                 password=bcrypt.hash(request.get_json()['password']))
@@ -99,7 +101,9 @@ def delete_user(user_id):
 @app.route('/users/current')
 def get_current_user():
     if current_user.is_authenticated:
-        return jsonify(id=current_user.id, username=current_user.username, is_logged_in=True)
+        return jsonify(id=current_user.id,
+                username=current_user.username,
+                is_logged_in=True)
     else:
         return jsonify(is_logged_in=False)
 
@@ -236,3 +240,17 @@ def choose_card_for_game(game_id, card_id):
     db.session.add(chosen_card)
     db.session.commit()
     return jsonify(chosen_card=chosen_card), 201
+
+@app.route('/games/<int:game_id>/columns/<int:column_id>', methods=['POST'])
+@login_required
+def choose_column_for_card(game_id, column_id):
+    game = Game.query.get(game_id)
+    if not game:
+        return jsonify(error='No game found'), 404
+    chosen_column = game.columns.query.get(column_id)
+    if not chosen_column:
+        return jsonify(error='No column found'), 404
+    chosen_card = ChosenCard.query \
+            .filter(game_id=game_id, user_id=current_user.id).first()
+    chosen_column.replace_by_card(chosen_card)
+    return jsonify(column=chosen_column), 201

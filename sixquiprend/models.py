@@ -79,18 +79,22 @@ class Game(db.Model):
                 }
 
     def resolve_turn(self):
-        chosen_cards = self.chosen_cards.join(cards, chosen_cards.card_id==cards.id) \
-                        .order_by(model.Card.number.asc()).all()
+        chosen_cards = self.chosen_cards \
+                .join(cards, chosen_cards.card_id==cards.id) \
+                .order_by(model.Card.number.asc()).all()
         for chosen_card in chosen_cards:
             diff = 104
             for column in self.columns.all():
                 last_card = columns.cards.order_by(model.Card.number.asc()).last()
-                diff_temp = math.fabs(last_card.number - chosen_card.number)
-                if diff_temp < diff:
+                diff_temp = chosen_card.number - last_card.number
+                if diff_temp > 0 and diff_temp < diff:
                     diff = diff_temp
                     chosen_column = column
+            if diff == 104:
+                break
             if chosen_column.cards.count() == 5:
-                user_game_heap = chosen_card.user.heaps.query.filter(game_id=self.id).first()
+                user_game_heap = chosen_card.user.heaps.query \
+                        .filter(game_id=self.id).first()
                 user_game_heap.cards.append(chosen_column.cards)
                 db.session.add(user_game_heap)
                 chosen_column.cards = []
@@ -98,6 +102,7 @@ class Game(db.Model):
                 db.session.commit()
             chosen_column.cards.append(chosen_cards.card)
             db.session.add(chosen_column)
+            db.session.delete(chosen_card)
             db.session.commit()
 
 
@@ -118,6 +123,16 @@ class Column(db.Model):
                 'game_id': self.game_id,
                 'cards': self.cards.all()
                 }
+
+    def replace_by_card(self, chosen_card):
+        user_heap = chosen_card.user.heaps.query \
+                .filter(game_id=chosen_card.game_id).first()
+        user_heap.cards.appen(self.cards)
+        db.session.add(user_heap)
+        self.cards = chosen_card.card
+        db.session.add(self)
+        db.session.delete(chosen_card)
+        db.session.commit()
 
 hand_cards = db.Table('hand_cards',
         db.Column('hand_id', db.Integer, db.ForeignKey('hand.id')),
