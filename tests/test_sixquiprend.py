@@ -1,11 +1,17 @@
-from sixquiprend.sixquiprend import app, db, User, user_manager
-from flask import Flask, url_for
+from sixquiprend.sixquiprend import app, db
+from passlib.hash import bcrypt
+from flask import Flask
 import unittest
+from sixquiprend.config import *
+from sixquiprend.utils import *
+from sixquiprend.models import *
+from sixquiprend.routes import *
+import json
 
 class SixquiprendTestCase(unittest.TestCase):
 
     USERNAME = 'User'
-    PASSWORD = 'Password1'
+    PASSWORD = 'Password'
 
     def setUp(self):
         app.config['SERVER_NAME'] = 'localhost'
@@ -20,7 +26,8 @@ class SixquiprendTestCase(unittest.TestCase):
             db.create_all()
             if not User.query.filter(User.username == 'User').first():
                 user = User(username=self.USERNAME,
-                        password=user_manager.password_crypt_context.hash(self.PASSWORD))
+                        password=bcrypt.encrypt(self.PASSWORD),
+                        active=True)
                 db.session.add(user)
                 db.session.commit()
 
@@ -32,28 +39,18 @@ class SixquiprendTestCase(unittest.TestCase):
 
     def login(self):
         with app.app_context():
-            self.app.post(url_for('user.login'), data=dict(
+            self.app.post('/login', data=dict(
                 username=self.USERNAME,
                 password=self.PASSWORD,
             ), follow_redirects=True)
 
     def logout(self):
         with app.app_context():
-            self.app.get(url_for('user.logout'), follow_redirects=True)
+            self.app.get('/logout', follow_redirects=True)
 
-    def test_empty_db(self):
-        rv = self.app.get('/')
-        assert b'No entries here so far' in rv.data
-
-    def test_messages(self):
-        self.login()
-        rv = self.app.post('/add', data=dict(
-            title='<Hello>',
-            text='<strong>HTML</strong> allowed here'
-        ), follow_redirects=True)
-        assert b'No entries here so far' not in rv.data
-        assert b'&lt;Hello&gt;' in rv.data
-        assert b'<strong>HTML</strong> allowed here' in rv.data
+    def test_get_games(self):
+        rv = self.app.get('/games')
+        assert json.loads(rv.data) == {'games':[]}
 
 if __name__ == '__main__':
     unittest.main()

@@ -56,15 +56,16 @@ class Card(db.Model):
         return {'number': self.number, 'cow_value': self.cow_value}
 
 class Game(db.Model):
-    CREATED = 0
-    STARTED = 1
-    FINISHED = 2
+    GAME_STATUS_CREATED = 0
+    GAME_STATUS_STARTED = 1
+    GAME_STATUS_FINISHED = 2
 
     id = db.Column(db.Integer, primary_key=True)
-    status = db.Column(db.Integer, nullable=False, default=Game.CREATED)
+    status = db.Column(db.Integer, nullable=False, default=GAME_STATUS_CREATED)
 
     def serialize(self):
-        return { 'id': self.id, 'players': [u.serialize() for u in self.users.all()] }
+        return { 'id': self.id, 'players': [u.serialize() for u in
+            self.users.all()], 'status': self.status }
 
 column_cards = db.Table('column_cards',
         db.Column('column_id', db.Integer, db.ForeignKey('column.id')),
