@@ -51,7 +51,7 @@ def register():
     user = User.query.filter(User.username == request.get_json()['username']).first()
     if not user:
         user = User(username=request.get_json()['username'],
-                password=bcrypt.encrypt(request.get_json()['password']))
+                password=bcrypt.hash(request.get_json()['password']))
         db.session.add(user)
         db.session.commit()
         return jsonify(registered=True)

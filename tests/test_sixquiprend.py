@@ -26,7 +26,7 @@ class SixquiprendTestCase(unittest.TestCase):
             db.create_all()
             if not User.query.filter(User.username == 'User').first():
                 user = User(username=self.USERNAME,
-                        password=bcrypt.encrypt(self.PASSWORD),
+                        password=bcrypt.hash(self.PASSWORD),
                         active=True)
                 db.session.add(user)
                 db.session.commit()
