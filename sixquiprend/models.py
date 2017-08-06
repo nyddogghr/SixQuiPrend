@@ -41,7 +41,10 @@ class User(db.Model):
         return bcrypt.verify(password, self.password)
 
     def serialize(self):
-        return {'id': self.id, 'username': self.username}
+        return {
+                'id': self.id,
+                'username': self.username
+                }
 
 class Card(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -53,7 +56,11 @@ class Card(db.Model):
         self.cow_value = cow_value
 
     def serialize(self):
-        return {'number': self.number, 'cow_value': self.cow_value}
+        return {
+                'id': self.id,
+                'number': self.number,
+                'cow_value': self.cow_value
+                }
 
 class Game(db.Model):
     GAME_STATUS_CREATED = 0
@@ -64,8 +71,11 @@ class Game(db.Model):
     status = db.Column(db.Integer, nullable=False, default=GAME_STATUS_CREATED)
 
     def serialize(self):
-        return { 'id': self.id, 'players': [u.serialize() for u in
-            self.users.all()], 'status': self.status }
+        return {
+                'id': self.id,
+                'users': self.users.all(),
+                'status': self.status
+                }
 
 column_cards = db.Table('column_cards',
         db.Column('column_id', db.Integer, db.ForeignKey('column.id')),
@@ -77,6 +87,13 @@ class Column(db.Model):
     game_id = db.Column(db.Integer, db.ForeignKey('game.id'))
     cards = db.relationship('Card', secondary=column_cards,
             backref=db.backref('columns', lazy='dynamic'))
+
+    def serialize(self):
+        return {
+                'id': self.id,
+                'game_id': self.game_id,
+                'cards': self.cards.all()
+                }
 
 hand_cards = db.Table('hand_cards',
         db.Column('hand_id', db.Integer, db.ForeignKey('hand.id')),
@@ -90,6 +107,14 @@ class Hand(db.Model):
     cards = db.relationship('Card', secondary=hand_cards,
             backref=db.backref('hands', lazy='dynamic'))
 
+    def serialize(self):
+        return {
+                'id': self.id,
+                'user_id': self.user_id,
+                'game_id': self.game_id,
+                'cards': self.cards.all()
+                }
+
 heap_cards = db.Table('heap_cards',
         db.Column('heap_id', db.Integer, db.ForeignKey('heap.id')),
         db.Column('card_id', db.Integer, db.ForeignKey('card.id'))
@@ -102,8 +127,24 @@ class Heap(db.Model):
     cards = db.relationship('Card', secondary=heap_cards,
             backref=db.backref('heaps', lazy='dynamic'))
 
+    def serialize(self):
+        return {
+                'id': self.id,
+                'user_id': self.user_id,
+                'game_id': self.game_id,
+                'cards': self.cards.all()
+                }
+
 class ChosenCard(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     game_id = db.Column(db.Integer, db.ForeignKey('game.id'))
     card_id = db.Column(db.Integer, db.ForeignKey('card.id'))
+
+    def serialize(self):
+        return {
+                'id': self.id,
+                'user_id': self.user_id,
+                'game_id': self.game_id,
+                'card_id': self.card_id
+                }

@@ -1,4 +1,5 @@
 from flask import Flask
+from flask.json import JSONEncoder
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 
@@ -24,3 +25,12 @@ def load_user(username):
 @login_manager.unauthorized_handler
 def unauthorized():
     return jsonify(error='Unauthorized'), 401
+
+class MyJSONEncoder(JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, db.Model):
+            return obj.serialize()
+        else:
+            return obj
+
+app.json_encoder = MyJSONEncoder
