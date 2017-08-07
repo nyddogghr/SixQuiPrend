@@ -17,7 +17,7 @@ def admin_required(func):
 def bot_forbidden(func):
     @wraps(func)
     def func_wrapper(*args, **kwargs):
-        if not current_user.get_urole() > User.USER_ROLE_BOT:
+        if not current_user.get_urole() > User.USER_BOT_ROLE:
             return app.login_manager.unauthorized()
         return func(*args, **kwargs)
     return func_wrapper
@@ -143,6 +143,8 @@ def enter_game(game_id):
         return jsonify(error='No game found'), 404
     if game.status != Game.CREATED:
         return jsonify(error='Cannot enter already started game'), 400
+    if game.users.count() == 6:
+        return jsonify(error='Game has already 6 players'), 400
     game.users.append(current_user)
     db.session.add(game)
     db.session.commit()
@@ -156,10 +158,12 @@ def add_bot_to_game(game_id, user_id):
         return jsonify(error='No game found'), 404
     if game.status != Game.CREATED:
         return jsonify(error='Cannot enter already started game'), 400
+    if game.users.count() == 6:
+        return jsonify(error='Game has already 6 players'), 400
     user = User.query.get(user_id)
     if not user:
         return jsonify(error='No user found'), 404
-    if user.get_urole() != User.USER_ROLE_BOT:
+    if user.get_urole() != User.USER_BOT_ROLE:
         return jsonify(error='Can only add a bot'), 400
     game.users.append(user)
     db.session.add(game)

@@ -23,13 +23,11 @@ def create_db():
         con.close()
 
 def populate_db():
-    if not User.query.filter(User.username == app.config['USERNAME']).first():
-        admin = User(username=app.config['USERNAME'],
-                password=bcrypt.encrypt(app.config['PASSWORD']),
-                urole=User.USER_ADMIN_ROLE, active=True)
-        db.session.add(admin)
-        db.session.commit()
-        print('Added admin user')
+    add_cards()
+    add_admin()
+    add_bots()
+
+def add_cards():
     if Card.query.count() == 0:
         for i in range(1, 105):
             cow_value = 0
@@ -45,6 +43,26 @@ def populate_db():
             db.session.add(card)
         db.session.commit()
         print('Added cards')
+
+def add_admin():
+    if not User.query.filter(User.username == app.config['ADMIN_USERNAME']).first():
+        admin = User(username=app.config['ADMIN_USERNAME'],
+                password=bcrypt.encrypt(app.config['ADMIN_PASSWORD']),
+                urole=User.USER_ADMIN_ROLE, active=True)
+        db.session.add(admin)
+        db.session.commit()
+        print('Added admin user')
+
+def add_bots():
+    for bot_name in app.config['BOT_NAMES']:
+        if not User.query.filter(User.username == bot_name).first():
+            # password is irrelevant, as bots cannot login
+            admin = User(username=bot_name,
+                    password=bcrypt.encrypt(bot_name),
+                    urole=User.USER_BOT_ROLE, active=True)
+            db.session.add(admin)
+            db.session.commit()
+            print('Added bot', bot_name)
 
 @app.cli.command('create_db')
 def create_db_command():

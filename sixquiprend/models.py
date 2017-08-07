@@ -14,7 +14,7 @@ user_games = db.Table('user_games',
 )
 
 class User(db.Model):
-    USER_ROLE_BOT = 1
+    USER_BOT_ROLE = 1
     USER_PLAYER_ROLE = 2
     USER_ADMIN_ROLE = 3
 
@@ -24,7 +24,7 @@ class User(db.Model):
     password = db.Column(db.String(255), nullable=False, server_default='')
     authenticated = db.Column(db.Boolean, default=False)
     active = db.Column(db.Boolean, default=False)
-    urole = db.Column(db.Integer, default=User.USER_ROLE_BOT)
+    urole = db.Column(db.Integer, default=USER_PLAYER_ROLE)
     games = db.relationship('Game', secondary=user_games,
             backref=db.backref('users', lazy='dynamic'))
 

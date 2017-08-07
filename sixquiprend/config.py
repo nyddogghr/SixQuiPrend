@@ -8,8 +8,9 @@ app.config.update(dict(
     DATABASE_HOST='localhost',
     DATABASE_NAME='sixquiprend',
     SECRET_KEY='development key',
-    USERNAME='admin',
-    PASSWORD='admin',
+    ADMIN_USERNAME='admin',
+    ADMIN_PASSWORD='admin',
+    BOT_NAMES=['Azrael','Valdamar','Lüdwig','Seelöwe','Gallù']
 ))
 app.config.from_envvar('SIXQUIPREND_SETTINGS', silent=True)
 db_path = app.config['DATABASE_USER'] + ':' + app.config['DATABASE_PASSWORD']
