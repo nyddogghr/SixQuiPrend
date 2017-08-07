@@ -26,7 +26,7 @@ def populate_db():
     if not User.query.filter(User.username == app.config['USERNAME']).first():
         admin = User(username=app.config['USERNAME'],
                 password=bcrypt.encrypt(app.config['PASSWORD']),
-                admin=True, active=True)
+                urole=User.USER_ADMIN_ROLE, active=True)
         db.session.add(admin)
         db.session.commit()
         print('Added admin user')

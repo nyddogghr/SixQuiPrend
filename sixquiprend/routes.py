@@ -9,7 +9,15 @@ from functools import wraps
 def admin_required(func):
     @wraps(func)
     def func_wrapper(*args, **kwargs):
-        if not current_user.is_admin():
+        if not current_user.get_urole() >= User.USER_ADMIN_ROLE:
+            return app.login_manager.unauthorized()
+        return func(*args, **kwargs)
+    return func_wrapper
+
+def bot_forbidden(func):
+    @wraps(func)
+    def func_wrapper(*args, **kwargs):
+        if not current_user.get_urole() > User.USER_ROLE_BOT:
             return app.login_manager.unauthorized()
         return func(*args, **kwargs)
     return func_wrapper
@@ -63,6 +71,7 @@ def register():
 @app.route('/users/<int:user_id>/activate', methods=['PUT'])
 @login_required
 @admin_required
+@bot_forbidden
 def activate_user(user_id):
     user = User.query.get(user_id)
     if user:
@@ -139,6 +148,24 @@ def enter_game(game_id):
     db.session.commit()
     return jsonify(game=game), 201
 
+@app.route('/games/<int:game_id>/users/<int:user_id>/add', methods=['POST'])
+@login_required
+def add_bot_to_game(game_id, user_id):
+    game = Game.query.get(game_id)
+    if not game:
+        return jsonify(error='No game found'), 404
+    if game.status != Game.CREATED:
+        return jsonify(error='Cannot enter already started game'), 400
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify(error='No user found'), 404
+    if user.get_urole() != User.USER_ROLE_BOT:
+        return jsonify(error='Can only add a bot'), 400
+    game.users.append(user)
+    db.session.add(game)
+    db.session.commit()
+    return jsonify(game=game), 201
+
 @app.route('/games/<int:game_id>/leave', methods=['POST'])
 @login_required
 def leave_game(game_id):
@@ -194,12 +221,12 @@ def get_user_game_status(game_id, user_id):
     if not user:
         return jsonify(error='No user found'), 404
     response = user.serialize()
-    response['chosen_card'] = ChosenCard.query.filter(
+    response['has_chosen_card'] = ChosenCard.query.filter(
             user_id=user_id,
             game_id=game_id).count()
     return jsonify(user=response)
 
-@app.route('/games/<int:game_id>/users/<int:user_id>/heaps')
+@app.route('/games/<int:game_id>/users/<int:user_id>/heap')
 @login_required
 def get_user_game_heaps(game_id, user_id):
     game = Game.query.get(game_id)
@@ -211,16 +238,16 @@ def get_user_game_heaps(game_id, user_id):
     heaps = Heap.query.filter(game_id=game_id, user_id=user_id).all()
     return jsonify(heaps=heaps)
 
-@app.route('/games/<int:game_id>/users/<int:user_id>/hand')
+@app.route('/games/<int:game_id>/users/current/hand')
 @login_required
-def get_user_game_hand(game_id, user_id):
+def get_user_game_hand(game_id):
     game = Game.query.get(game_id)
     if not game:
         return jsonify(error='No game found'), 404
-    user = game.users.query.get(id=user_id)
+    user = game.users.query.get(id=current_user.id)
     if not user:
         return jsonify(error='No user found'), 404
-    hand = Hand.query.filter(game_id=game_id, user_id=user_id).first()
+    hand = Hand.query.filter(game_id=game_id, user_id=current_user.id).first()
     return jsonify(hand=hand)
 
 @app.route('/games/<int:game_id>/card/<int:card_id>', methods=['POST'])
@@ -241,6 +268,40 @@ def choose_card_for_game(game_id, card_id):
     db.session.commit()
     return jsonify(chosen_card=chosen_card), 201
 
+@app.route('/games/<int:game_id>/chosen_cards')
+@login_required
+def get_game_chosen_cards(game_id):
+    game = Game.query.get(game_id)
+    if not game:
+        return jsonify(error='No game found'), 404
+    user_count = Game.users.count()
+    chosen_cards = ChosenCard.query.filter(game_id=game_id)
+    if chosen_cards.count() < user_count:
+        return jsonify(error='Some users haven\'t chosen a card'), 400
+    return jsonify(chosen_cards=chosen_cards)
+
+@app.route('/games/<int:game_id>/turns/resolve', methods=['POST'])
+@login_required
+def rsolve_game_turn(game_id):
+    game = Game.query.get(game_id)
+    if not game:
+        return jsonify(error='No game found'), 404
+    if game.users.first().id != current_user:
+        return jsonify(error='Only game creator can resolve a turn'), 400
+    if game.chosen_cards.count() == 0:
+        return jsonify(error='All turns have been resolved'), 400
+    if game.chosen_cards.count() == game.users.count():
+        return jsonify(error='Some users haven\'t chosen a card'), 400
+    try:
+        [chosen_column, user_game_heap] = game.resolve_turn()
+    except NoSuitableColumnException as e:
+        return jsonify(user_id=e.value), 201
+    if user_game_heap:
+        return jsonify(chosen_column=chosen_column,
+                user_game_heap=user_game_heap), 201
+    else:
+        return jsonify(chosen_column=chosen_column), 201
+
 @app.route('/games/<int:game_id>/columns/<int:column_id>', methods=['POST'])
 @login_required
 def choose_column_for_card(game_id, column_id):
@@ -252,5 +313,5 @@ def choose_column_for_card(game_id, column_id):
         return jsonify(error='No column found'), 404
     chosen_card = ChosenCard.query \
             .filter(game_id=game_id, user_id=current_user.id).first()
-    chosen_column.replace_by_card(chosen_card)
-    return jsonify(column=chosen_column), 201
+    user_heap = chosen_column.replace_by_card(chosen_card)
+    return jsonify(column=chosen_column, user_heap=user_heap), 201

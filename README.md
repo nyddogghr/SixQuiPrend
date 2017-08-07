@@ -26,22 +26,24 @@ France (http://www.gigamic.com/jeu/6-qui-prend).
 * Delete a game
 * Create a game
 * Register into a game
+* Add a bot to a game
 * Leave a game
 * Start a game
 * Get a game's columns
 * Get a game's users
-* Get a player's status (choosing a card or not) for a game
-* Get a player's heap for a game
+* Get a user's status (choosing a card or not) for a game
+* Get a user's heap for a game
 * Get current player's hand
 * Choose a card from current player's hand
+* Display all users' chosen cards once all have chosen
+* Resolve a turn (place lowest chosen card)
 * Choose a column if noone suits the chosen card
 
 # TODO
-* Choose cards for a player
-* Choose cards for the columns
-* Resolve a turn (wait for all players to choose or random after timeout)
-* Choose a card placement and resolve it
-* incredibly smart AI that chooses randomly a card from its hand
+* Choose cards for a player (distribute cards)
+* Choose cards for the columns (initiate board)
+* Resolve a turn (wait for all players to choose or random after timeout, frontend)
+* Incredibly smart AI that chooses randomly a card from its hand
 * Count points
 * Statistics
 * Unit tests
