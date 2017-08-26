@@ -9,7 +9,7 @@ from functools import wraps
 def admin_required(func):
     @wraps(func)
     def func_wrapper(*args, **kwargs):
-        if not current_user.get_urole() >= User.USER_ADMIN_ROLE:
+        if not current_user.get_urole() >= User.ADMIN_ROLE:
             return app.login_manager.unauthorized()
         return func(*args, **kwargs)
     return func_wrapper
@@ -17,7 +17,7 @@ def admin_required(func):
 def bot_forbidden(func):
     @wraps(func)
     def func_wrapper(*args, **kwargs):
-        if not current_user.get_urole() > User.USER_BOT_ROLE:
+        if not current_user.get_urole() > User.BOT_ROLE:
             return app.login_manager.unauthorized()
         return func(*args, **kwargs)
     return func_wrapper
@@ -27,36 +27,39 @@ def get_index():
     return render_template('index.html')
 
 @app.route('/login', methods=['POST'])
+@bot_forbidden
 def login():
+    """Log in"""
     user = User.query \
             .filter(User.username == request.get_json()['username']).first()
     if user:
         if not user.is_active:
-            return jsonify(logged_in=False, error='User is inactive'), 400
+            return jsonify(error='User is inactive'), 403
         if user.verify_password(request.get_json()['password']):
             user.authenticated = True
             db.session.add(user)
             db.session.commit()
             login_user(user, remember=True)
-            return jsonify(logged_in=True)
+            return jsonify(status=True), 201
         else:
-            return jsonify(logged_in=False, error='Password is invalid'), 400
+            return jsonify(error='Password is invalid'), 400
     else:
-        return jsonify(logged_in=False, error='User doesn\'t exist'), 404
+        return jsonify(error='User doesn\'t exist'), 404
 
 @app.route('/logout', methods=['POST'])
 @login_required
 def logout():
-    """Logout the current user."""
+    """Log out"""
     user = current_user
     user.authenticated = False
     db.session.add(user)
     db.session.commit()
     logout_user()
-    return jsonify(logged_out=False)
+    return jsonify(status=False), 201
 
 @app.route('/register', methods=['POST'])
 def register():
+    """Register a new user"""
     user = User.query \
             .filter(User.username == request.get_json()['username']).first()
     if not user:
@@ -64,15 +67,25 @@ def register():
                 password=bcrypt.hash(request.get_json()['password']))
         db.session.add(user)
         db.session.commit()
-        return jsonify(registered=True)
+        return jsonify(registered=True), 201
     else:
-        return jsonify(registered=False, error='User already exists'), 400
+        return jsonify(error='User already exists'), 400
+
+@app.route('/users', methods=['GET'])
+@login_required
+@admin_required
+def get_users():
+    """Display all users (admin only). Accepts offset and limit (up to 50)"""
+    limit = min(0, math.max(50, request.args.get('limit')))
+    offset = min(0, request.args.get('limit'))
+    users = User.query.limit(limit).offset(offset).all()
+    return jsonify(users=users)
 
 @app.route('/users/<int:user_id>/activate', methods=['PUT'])
 @login_required
 @admin_required
-@bot_forbidden
 def activate_user(user_id):
+    """Activate a user (admin only)"""
     user = User.query.get(user_id)
     if user:
         user.active = True
@@ -80,12 +93,13 @@ def activate_user(user_id):
         db.session.commit()
         return jsonify(status=True)
     else:
-        return jsonify(status=False, error='User doesn\'t exist'), 404
+        return jsonify(error='User doesn\'t exist'), 404
 
 @app.route('/users/<int:user_id>/deactivate', methods=['PUT'])
 @login_required
 @admin_required
 def deactivate_user(user_id):
+    """Deactivate a user (admin only)"""
     user = User.query.get(user_id)
     if user:
         user.active = False
@@ -93,31 +107,32 @@ def deactivate_user(user_id):
         db.session.commit()
         return jsonify(status=True)
     else:
-        return jsonify(status=False, error='User doesn\'t exist'), 404
+        return jsonify(error='User doesn\'t exist'), 404
 
 @app.route('/users/<int:user_id>', methods=['DELETE'])
 @login_required
 @admin_required
 def delete_user(user_id):
+    """Delete a user (admin only)"""
     user = User.query.get(user_id)
     if user:
         db.session.delete(user)
         db.session.commit()
         return jsonify(status=True)
     else:
-        return jsonify(status=False, error='User doesn\'t exist'), 404
+        return jsonify(error='User doesn\'t exist'), 404
 
 @app.route('/users/current')
 def get_current_user():
+    """Get current user status"""
     if current_user.is_authenticated:
-        return jsonify(id=current_user.id,
-                username=current_user.username,
-                is_logged_in=True)
+        return jsonify(status=True, user=user)
     else:
-        return jsonify(is_logged_in=False)
+        return jsonify(status=False)
 
 @app.route('/games')
 def get_games():
+    """Display all games. Accepts offset and limit (up to 50)"""
     limit = min(0, math.max(50, request.args.get('limit')))
     offset = min(0, request.args.get('limit'))
     games = Game.query.limit(limit).offset(offset).all()
@@ -125,12 +140,15 @@ def get_games():
 
 @app.route('/games/<int:game_id>')
 def get_game(game_id):
+    """Display a game with its results"""
     game = Game.query.get(game_id)
-    return jsonify(game=game)
+    result = game.get_results()
+    return jsonify(game=game, results=results)
 
 @app.route('/games', methods=['POST'])
 @login_required
 def create_game():
+    """Create a new game"""
     game = Game()
     game.users.append(current_user)
     db.session.add(game)
@@ -140,13 +158,16 @@ def create_game():
 @app.route('/games/<int:game_id>/enter', methods=['POST'])
 @login_required
 def enter_game(game_id):
+    """Enter a game (must not be started)"""
     game = Game.query.get(game_id)
     if not game:
         return jsonify(error='No game found'), 404
-    if game.status != Game.CREATED:
+    if game.status != Game.STATUS_CREATED:
         return jsonify(error='Cannot enter already started game'), 400
-    if game.users.count() == 6:
-        return jsonify(error='Game has already 6 players'), 400
+    if game.users.count() == app.config['MAX_PLAYER_NUMBER']:
+        error = 'Game has already ' + str(app.config['MAX_PLAYER_NUMBER'])
+        + ' players'
+        return jsonify(error=error), 400
     if current_user in game.users:
         return jsonify(error='Cannot enter twice in a game'), 400
     game.users.append(current_user)
@@ -157,10 +178,11 @@ def enter_game(game_id):
 @app.route('/games/<int:game_id>/users/bots', methods=['GET'])
 @login_required
 def get_available_bots_for_game(game_id):
+    """Display available bots to add to a game"""
     game = Game.query.get(game_id)
     if not game:
         return jsonify(error='No game found'), 404
-    bots = User.query.filter(User.urole == User.USER_BOT_ROLE).all()
+    bots = User.query.filter(User.urole == User.BOT_ROLE).all()
     available_bots = []
     for bot in bots:
         if not bot in game.users:
@@ -170,21 +192,22 @@ def get_available_bots_for_game(game_id):
 @app.route('/games/<int:game_id>/users/<int:user_id>/add', methods=['POST'])
 @login_required
 def add_bot_to_game(game_id, user_id):
+    """Add a bot to a game"""
     game = Game.query.get(game_id)
     if not game:
         return jsonify(error='No game found'), 404
-    if game.status != Game.CREATED:
+    if game.status != Game.STATUS_CREATED:
         return jsonify(error='Cannot enter already started game'), 400
     if game.users.count() == app.config['MAX_PLAYER_NUMBER']:
         error = 'Game has already ' + str(app.config['MAX_PLAYER_NUMBER'])
         + ' players'
         return jsonify(error=error), 400
     if not current_user.is_game_owner(game):
-        return jsonify(error='Only game owner can performed this'), 400
+        return jsonify(error='Only game owner can performed this'), 403
     user = User.query.get(user_id)
     if not user:
         return jsonify(error='No user found'), 404
-    if user.get_urole() != User.USER_BOT_ROLE:
+    if user.get_urole() != User.BOT_ROLE:
         return jsonify(error='Can only add a bot'), 400
     game.users.append(user)
     db.session.add(game)
@@ -194,6 +217,7 @@ def add_bot_to_game(game_id, user_id):
 @app.route('/games/<int:game_id>/leave', methods=['POST'])
 @login_required
 def leave_game(game_id):
+    """Leave a game (nobody likes rage quitters)"""
     game = Game.query.get(game_id)
     if not game:
         return jsonify(error='No game found'), 404
@@ -207,13 +231,16 @@ def leave_game(game_id):
 @app.route('/games/<int:game_id>/start', methods=['PUT'])
 @login_required
 def start_game(game_id):
+    """Start a game (only game owner can start it)"""
     game = Game.query.get(game_id)
     if not game:
         return jsonify(error='No game found'), 404
-    if not game.status != Game.CREATED:
+    if game.status != Game.STATUS_CREATED:
         return jsonify(error='Cannot start an already started game'), 400
     if game.users.length < 2:
         return jsonify(error='Cannot start game with less than 2 players'), 400
+    if not current_user.is_game_owner(game):
+        return jsonify(error='Only game owner can start it'), 403
     game.status = Game.STARTED
     db.session.add(game)
     db.session.commit()
@@ -222,70 +249,84 @@ def start_game(game_id):
 @app.route('/games/<int:game_id>/columns')
 @login_required
 def get_game_columns(game_id):
+    """Get columns for the given game"""
     game = Game.query.get(game_id)
     if not game:
         return jsonify(error='No game found'), 404
-    columns = Column.query.filter(game_id=game_id).all()
+    if game.status == Game.STATUS_CREATED:
+        return jsonify(error='Cannot display columns of an unstarted game'), 400
+    columns = game.get_columns()
     return jsonify(columns=columns)
 
 @app.route('/games/<int:game_id>/users')
 @login_required
 def get_game_users(game_id):
+    """Get users for a given game"""
     game = Game.query.get(game_id)
     if not game:
         return jsonify(error='No game found'), 404
+    users = game.users.all()
     return jsonify(users=users)
 
 @app.route('/games/<int:game_id>/users/<int:user_id>/status')
 @login_required
 def get_user_game_status(game_id, user_id):
+    """Get user status (has or not chosen a card) for a given game"""
     game = Game.query.get(game_id)
     if not game:
         return jsonify(error='No game found'), 404
-    user = game.users.query.get(id=user_id)
+    if game.status == Game.STATUS_CREATED:
+        return jsonify(error='Cannot get a user\'s status of an unstarted game'), 400
+    user = game.get_user(user_id)
     if not user:
         return jsonify(error='No user found'), 404
-    response = user.serialize()
-    response['has_chosen_card'] = ChosenCard.query.filter(
-            user_id=user_id,
-            game_id=game_id).count()
-    return jsonify(user=response)
+    user = user.serialize()
+    user['has_chosen_card'] = user.has_chosen_card(game_id)
+    return jsonify(user=user)
 
 @app.route('/games/<int:game_id>/users/<int:user_id>/heap')
 @login_required
-def get_user_game_heaps(game_id, user_id):
+def get_user_game_heap(game_id, user_id):
+    """Get a user's heap for a given game"""
     game = Game.query.get(game_id)
     if not game:
         return jsonify(error='No game found'), 404
-    user = game.users.query.get(id=user_id)
+    if game.status == Game.STATUS_CREATED:
+        return jsonify(error='Cannot get a user\'s heap of an unstarted game'), 400
+    user = game.get_user(user_id)
     if not user:
         return jsonify(error='No user found'), 404
-    heaps = Heap.query.filter(game_id=game_id, user_id=user_id).all()
-    return jsonify(heaps=heaps)
+    heap = user.get_game_heap(game_id)
+    return jsonify(heap=heap)
 
 @app.route('/games/<int:game_id>/users/current/hand')
 @login_required
 def get_user_game_hand(game_id):
+    """Get your hand for a given game"""
     game = Game.query.get(game_id)
     if not game:
         return jsonify(error='No game found'), 404
-    user = game.users.query.get(id=current_user.id)
+    if game.status != Game.STATUS_STARTED:
+        return jsonify(error='Can only show your hand for a started game'), 400
+    user = game.get_user(user_id)
     if not user:
         return jsonify(error='No user found'), 404
-    hand = Hand.query.filter(game_id=game_id, user_id=current_user.id).first()
+    hand = user.get_game_hand(game_id)
     return jsonify(hand=hand)
 
 @app.route('/games/<int:game_id>/card/<int:card_id>', methods=['POST'])
 @login_required
 def choose_card_for_game(game_id, card_id):
+    """Choose your card to play for a game"""
     game = Game.query.get(game_id)
     if not game:
         return jsonify(error='No game found'), 404
-    user = game.users.query.get(id=user_id)
+    if game.status != Game.STATUS_STARTED:
+        return jsonify(error='Can only choose a card for a started game'), 400
+    user = game.get_user(user_id)
     if not user:
         return jsonify(error='No user found'), 404
-    if ChosenCard.query.filter(game_id=game_id,
-            user_id=current_user.id).count() > 0:
+    if user.has_chosen_card(game_id):
         return jsonify(error='Card already chosen'), 400
     chosen_card = current_user.choose_card_for_game(game_id, card_id)
     db.session.add(chosen_card)
@@ -295,15 +336,18 @@ def choose_card_for_game(game_id, card_id):
 @app.route('/games/<int:game_id>/chosen_cards')
 @login_required
 def get_game_chosen_cards(game_id):
+    """Display chosen cards for a game. Only available once all users have
+    chosen"""
     game = Game.query.get(game_id)
     if not game:
         return jsonify(error='No game found'), 404
+    if game.status != Game.STATUS_STARTED:
+        return jsonify(error='Can only show chosen cards for a started game'), 400
     if current_user.is_game_owner(game):
         for user in game.users.all():
-            if user.get_urole() == User.USER_ROLE_BOT:
-                if ChosenCard.query.filter(game_id=game_id,
-                        user_id=user.id).count() == 0:
-                    user.bot_choose_card_for_game(game_id, None)
+            if user.get_urole() == User.BOT_ROLE:
+                if user.has_chosen_card(game_id):
+                    user.choose_card_for_game(game_id, None)
     user_count = game.users.count()
     chosen_cards = ChosenCard.query.filter(game_id=game_id)
     if chosen_cards.count() < user_count:
@@ -313,15 +357,16 @@ def get_game_chosen_cards(game_id):
 @app.route('/games/<int:game_id>/turns/resolve', methods=['POST'])
 @login_required
 def resolve_game_turn(game_id):
+    """Resolve a game turn (only available to game owner)"""
     game = Game.query.get(game_id)
     if not game:
         return jsonify(error='No game found'), 404
+    if game.status != Game.STATUS_STARTED:
+        return jsonify(error='Can only resolve a turn for a started game'), 400
     if not current_user.is_game_owner(game):
-        return jsonify(error='Only game creator can resolve a turn'), 400
+        return jsonify(error='Only game creator can resolve a turn'), 403
     if game.chosen_cards.count() == 0:
-        return jsonify(error='All turns have been resolved'), 400
-    if game.chosen_cards.count() == game.users.count():
-        return jsonify(error='Some users haven\'t chosen a card'), 400
+        return jsonify(error='All cards have been placed'), 400
     try:
         chosen_column = game.resolve_turn()
     except NoSuitableColumnException as e:
@@ -331,13 +376,16 @@ def resolve_game_turn(game_id):
 @app.route('/games/<int:game_id>/columns/<int:column_id>', methods=['POST'])
 @login_required
 def choose_column_for_card(game_id, column_id):
+    """Choose a column for a card in given game (when a user must choose a
+    column to replace)"""
     game = Game.query.get(game_id)
     if not game:
         return jsonify(error='No game found'), 404
+    if game.status != Game.STATUS_STARTED:
+        return jsonify(error='Can only choose a coluln to replace for a started game'), 400
     chosen_column = game.columns.query.get(column_id)
     if not chosen_column:
         return jsonify(error='No column found'), 404
-    chosen_card = ChosenCard.query \
-            .filter(game_id=game_id, user_id=current_user.id).first()
+    chosen_card = current_user.get_chosen_card(game_id)
     user_heap = chosen_column.replace_by_card(chosen_card)
     return jsonify(column=chosen_column, user_heap=user_heap), 201

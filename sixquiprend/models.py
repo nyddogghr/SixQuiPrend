@@ -15,9 +15,9 @@ user_games = db.Table('user_games',
 )
 
 class User(db.Model):
-    USER_BOT_ROLE = 1
-    USER_PLAYER_ROLE = 2
-    USER_ADMIN_ROLE = 3
+    BOT_ROLE = 1
+    PLAYER_ROLE = 2
+    ADMIN_ROLE = 3
 
     id = db.Column(db.Integer, primary_key=True)
     # User authentication information
@@ -25,7 +25,7 @@ class User(db.Model):
     password = db.Column(db.String(255), nullable=False, server_default='')
     authenticated = db.Column(db.Boolean, default=False)
     active = db.Column(db.Boolean, default=app.config['ACTIVATE_ALL_USERS'])
-    urole = db.Column(db.Integer, default=USER_PLAYER_ROLE)
+    urole = db.Column(db.Integer, default=PLAYER_ROLE)
     games = db.relationship('Game', secondary=user_games,
             backref=db.backref('users', lazy='dynamic'))
 
@@ -56,7 +56,7 @@ class User(db.Model):
         return game.users.first() == self
 
     def choose_card_for_game(self, game_id, card_id):
-        hand = Hand.query(game_id=game_id, user_id=self.id)
+        hand = self.get_game_hand(game_id)
         if card_id == None:
             card = hand.cards.all().pop(random.randrange(len(hand.cards.count())))
         else:
@@ -68,6 +68,20 @@ class User(db.Model):
         db.session.add(chosen_card)
         db.session.commit()
         return chosen_card
+
+    def get_game_heap(self, game_id):
+        return Heap.query.filter(user_id=self.id, game_id=game_id).first()
+
+    def get_game_hand(self, game_id):
+        return Hand.query.filter(user_id=self.id, game_id=game_id).first()
+
+    def has_chosen_card(self, game_id):
+        return ChosenCard.query.filter(user_id=self.id,
+                game_id=game_id).count() == 1
+
+    def get_chosen_card(self, game_id):
+        return ChosenCard.query.filter(user_id=self.id,
+                game_id=game_id).first()
 
     def serialize(self):
         return {
@@ -93,19 +107,12 @@ class Card(db.Model):
                 }
 
 class Game(db.Model):
-    GAME_STATUS_CREATED = 0
-    GAME_STATUS_STARTED = 1
-    GAME_STATUS_FINISHED = 2
+    STATUS_CREATED = 0
+    STATUS_STARTED = 1
+    STATUS_FINISHED = 2
 
     id = db.Column(db.Integer, primary_key=True)
-    status = db.Column(db.Integer, nullable=False, default=GAME_STATUS_CREATED)
-
-    def serialize(self):
-        return {
-                'id': self.id,
-                'users': self.users.all(),
-                'status': self.status
-                }
+    status = db.Column(db.Integer, nullable=False, default=STATUS_CREATED)
 
     def get_lowest_value_column(self):
         column_value = 9000
@@ -133,13 +140,13 @@ class Game(db.Model):
         return chosen_column
 
     def resolve_turn(self):
-        chosen_card = self.chosen_cards \
-                .join(cards, chosen_cards.card_id==cards.id) \
-                .order_by(model.Card.number.asc()).first()
+        chosen_card = self.chosen_cards.join(cards,
+                chosen_cards.card_id==cards.id).order_by(model.Card.number.asc()).first()
+        if not chosen_card:
+            return
         chosen_column = self.get_suitable_column(chosen_card)
         if chosen_column.cards.count() == 5:
-            user_game_heap = chosen_card.user.heaps.query \
-                    .filter(game_id=self.id).first()
+            user_game_heap = user.get_game_heap(self.id)
             user_game_heap.cards.append(chosen_column.cards)
             db.session.add(user_game_heap)
             chosen_column.cards = []
@@ -150,6 +157,7 @@ class Game(db.Model):
         db.session.add(chosen_column)
         db.session.delete(chosen_card)
         db.session.commit()
+        self.check_status()
         return chosen_column
 
     def setup_game(self):
@@ -168,6 +176,29 @@ class Game(db.Model):
             db.session.add(column)
         db.session.commit()
 
+    def get_results(self):
+        result = {}
+        for user in self.users.all():
+            user_game_heap = user.get_game_heap(self.id)
+            result[user.username] = user_game_heap.get_value()
+        return results
+
+    def check_status(self):
+        if self.users.first().get_game_hand(self.id).cards.count() == 0:
+            self.status = Game.FINISHED
+            db.session.add(self)
+            db.session.commit()
+
+    def get_user(self, user_id):
+        return self.users.query.filter(id=user_id).first()
+
+    def serialize(self):
+        return {
+                'id': self.id,
+                'users': self.users.all(),
+                'status': self.status
+                }
+
 column_cards = db.Table('column_cards',
         db.Column('column_id', db.Integer, db.ForeignKey('column.id')),
         db.Column('card_id', db.Integer, db.ForeignKey('card.id'))
@@ -180,10 +211,9 @@ class Column(db.Model):
             backref=db.backref('columns', lazy='dynamic'))
 
     def replace_by_card(self, chosen_card):
-        user_heap = chosen_card.user.heaps.query \
-                .filter(game_id=chosen_card.game_id).first()
-        user_heap.cards.appen(self.cards)
-        db.session.add(user_heap)
+        user_game_heap = chosen_card.user.get_game_heap(chosen_card.game_id)
+        user_game_heap.cards.appen(self.cards)
+        db.session.add(user_game_heap)
         self.cards = chosen_card.card
         db.session.add(self)
         db.session.delete(chosen_card)
@@ -191,6 +221,9 @@ class Column(db.Model):
 
     def get_value(self):
         return sum(card.cow_value for card in self.cards)
+
+    def get_columns(self):
+        return self.columns.all()
 
     def serialize(self):
         return {
@@ -230,6 +263,9 @@ class Heap(db.Model):
     game_id = db.Column(db.Integer, db.ForeignKey('game.id'))
     cards = db.relationship('Card', secondary=heap_cards,
             backref=db.backref('heaps', lazy='dynamic'))
+
+    def get_value(self):
+        return sum(card.cow_value for card in self.cards)
 
     def serialize(self):
         return {

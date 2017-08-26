@@ -48,7 +48,7 @@ def add_admin():
     if not User.query.filter(User.username == app.config['ADMIN_USERNAME']).first():
         admin = User(username=app.config['ADMIN_USERNAME'],
                 password=bcrypt.encrypt(app.config['ADMIN_PASSWORD']),
-                urole=User.USER_ADMIN_ROLE, active=True)
+                urole=User.ADMIN_ROLE, active=True)
         db.session.add(admin)
         db.session.commit()
         print('Added admin user')
@@ -59,7 +59,7 @@ def add_bots():
             # password is irrelevant, as bots cannot login
             admin = User(username=bot_name,
                     password=bcrypt.encrypt(bot_name),
-                    urole=User.USER_BOT_ROLE, active=True)
+                    urole=User.BOT_ROLE, active=True)
             db.session.add(admin)
             db.session.commit()
             print('Added bot', bot_name)
