@@ -20,31 +20,28 @@ France (http://www.gigamic.com/jeu/6-qui-prend).
 * Register user
 * Get all users (if admin)
 * Activate/deactivate a user (if admin)
-* Delete a user
+* Delete a user (if admin)
+* Get current user
 * Get all games
-* Get a game result
-* Delete a game
+* Get a game (with points)
 * Create a game
 * Register into a game
+* Display available bots for a game
 * Add a bot to a game
 * Leave a game
-* Start a game
+* Start a game (initiate board and hands)
 * Get a game's columns
 * Get a game's users
-* Get a user's status (choosing a card or not) for a game
+* Get a user's status (chosen a card or not) for a game
 * Get a user's heap for a game
-* Get current player's hand
-* Choose a card from current player's hand
+* Get current user's hand
+* Choose a card from current user's hand
 * Display all users' chosen cards once all have chosen
-* Resolve a turn (place lowest chosen card)
-* Choose a column if noone suits the chosen card
+* Resolve a turn (place cards until a column must be manually chosen)
+* Choose a column if needed
 
 # TODO
-* Choose cards for a player (distribute cards)
-* Choose cards for the columns (initiate board)
-* Resolve a turn (wait for all players to choose or random after timeout, frontend)
-* Incredibly smart AI that chooses randomly a card from its hand
+* Delete games
 * Count points
 * Statistics
 * Unit tests
-* Add a validation from admin to create users (prevent spam), or anything else
