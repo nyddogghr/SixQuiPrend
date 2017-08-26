@@ -1,6 +1,7 @@
-from sixquiprend.sixquiprend import db
+from sixquiprend.sixquiprend import app, db
 from passlib.hash import bcrypt
 import math
+import random
 
 class NoSuitableColumnException(Exception):
     def __init__(self, value):
@@ -126,7 +127,21 @@ class Game(db.Model):
         else:
             return chosen_column
 
-
+    def setup_game(self):
+        max_card_number = db.session.query(func.max(Card.number)).scalar()
+        card_set = list(range(1,max_card_number + 1))
+        for user in self.users.all():
+            user_hand = Hand(user=user, game=self)
+            for i in range(app.config['HAND_SIZE']):
+                card_number = card_set.pop(random.randrange(len(card_set)))
+                user_hand.cards.append(Card.query.filter(Card.number==card_number).first())
+                db.session.add(user_hand)
+        for i in range(app.config['BOARD_SIZE']):
+            column = Column(game_id=self.id)
+            card_number = card_set.pop(random.randrange(len(card_set)))
+            column.cards.append(Card.query.filter(Card.number==card_number).first())
+            db.session.add(column)
+        db.session.commit()
 
 column_cards = db.Table('column_cards',
         db.Column('column_id', db.Integer, db.ForeignKey('column.id')),
