@@ -24,7 +24,7 @@ class User(db.Model):
     username = db.Column(db.String(50), nullable=False, unique=True)
     password = db.Column(db.String(255), nullable=False, server_default='')
     authenticated = db.Column(db.Boolean, default=False)
-    active = db.Column(db.Boolean, default=False)
+    active = db.Column(db.Boolean, default=app.config['ACTIVATE_ALL_USERS'])
     urole = db.Column(db.Integer, default=USER_PLAYER_ROLE)
     games = db.relationship('Game', secondary=user_games,
             backref=db.backref('users', lazy='dynamic'))
@@ -51,6 +51,23 @@ class User(db.Model):
 
     def verify_password(self, password):
         return bcrypt.verify(password, self.password)
+
+    def is_game_owner(self, game):
+        return game.users.first() == self
+
+    def choose_card_for_game(self, game_id, card_id):
+        hand = Hand.query(game_id=game_id, user_id=self.id)
+        if card_id == None:
+            card = hand.cards.all().pop(random.randrange(len(hand.cards.count())))
+        else:
+            card = hand.cards.query().filter(card_id==card_id).first()
+            hand.cards.all().remove(card)
+        db.session.add(hand)
+        chosen_card = ChosenCard(game_id=game_id, user_id=self.id,
+            card_id=card_id)
+        db.session.add(chosen_card)
+        db.session.commit()
+        return chosen_card
 
     def serialize(self):
         return {
@@ -90,10 +107,15 @@ class Game(db.Model):
                 'status': self.status
                 }
 
-    def resolve_turn(self, turn_number):
-        chosen_card = self.chosen_cards \
-                .join(cards, chosen_cards.card_id==cards.id) \
-                .order_by(model.Card.number.asc()).first()
+    def get_lowest_value_column(self):
+        column_value = 9000
+        for column in self.columns:
+            tmp_column_value = column.get_value()
+            if tmp_column_value < column_value:
+                lowest_value_column = column
+        return lowest_value_column
+
+    def get_suitable_column(self, chosen_card):
         diff = 104
         user_game_heap_changed = False
         for column in self.columns.all():
@@ -104,11 +126,17 @@ class Game(db.Model):
                 chosen_column = column
         if diff == 104:
             if chosen_card.user.get_urole() == User.USER_ROLE_BOT:
-                chosen_column = columns.first()
-                user_game_heap = chosen_column.replace_by_card(chosen_card)
-                return [chosen_column, user_game_heap]
+                chosen_column = self.get_lowest_value_column()
+                chosen_column.replace_by_card(chosen_card)
             else:
                 raise NoSuitableColumnException(chosen_card.user_id)
+        return chosen_column
+
+    def resolve_turn(self):
+        chosen_card = self.chosen_cards \
+                .join(cards, chosen_cards.card_id==cards.id) \
+                .order_by(model.Card.number.asc()).first()
+        chosen_column = self.get_suitable_column(chosen_card)
         if chosen_column.cards.count() == 5:
             user_game_heap = chosen_card.user.heaps.query \
                     .filter(game_id=self.id).first()
@@ -122,10 +150,7 @@ class Game(db.Model):
         db.session.add(chosen_column)
         db.session.delete(chosen_card)
         db.session.commit()
-        if user_game_heap_changed == True:
-            return [chosen_column, user_game_heap]
-        else:
-            return chosen_column
+        return chosen_column
 
     def setup_game(self):
         max_card_number = db.session.query(func.max(Card.number)).scalar()
@@ -154,13 +179,6 @@ class Column(db.Model):
     cards = db.relationship('Card', secondary=column_cards,
             backref=db.backref('columns', lazy='dynamic'))
 
-    def serialize(self):
-        return {
-                'id': self.id,
-                'game_id': self.game_id,
-                'cards': self.cards.all()
-                }
-
     def replace_by_card(self, chosen_card):
         user_heap = chosen_card.user.heaps.query \
                 .filter(game_id=chosen_card.game_id).first()
@@ -170,7 +188,16 @@ class Column(db.Model):
         db.session.add(self)
         db.session.delete(chosen_card)
         db.session.commit()
-        return user_heap
+
+    def get_value(self):
+        return sum(card.cow_value for card in self.cards)
+
+    def serialize(self):
+        return {
+                'id': self.id,
+                'game_id': self.game_id,
+                'cards': self.cards.all()
+                }
 
 hand_cards = db.Table('hand_cards',
         db.Column('hand_id', db.Integer, db.ForeignKey('hand.id')),
