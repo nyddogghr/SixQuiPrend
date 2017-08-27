@@ -48,13 +48,20 @@ class RoutesTestCase(unittest.TestCase):
         with app.app_context():
             self.app.post('/logout', content_type='application/json')
 
+    def get_test_user(self):
+        with app.app_context():
+            return User.query.filter(User.username == self.USERNAME).first()
+
     def test_login_logout(self):
         rv = self.app.get('/users/current')
         assert json.loads(rv.data) == {'status':False}
 
         self.login()
         rv = self.app.get('/users/current')
-        assert json.loads(rv.data)['status'] == True
+        assert json.loads(rv.data) == {
+                'status':True,
+                'user':self.get_test_user().serialize()
+                }
 
         self.logout()
         rv = self.app.get('/users/current')
@@ -76,7 +83,7 @@ class RoutesTestCase(unittest.TestCase):
         assert rv.status_code == 201
         game = json.loads(rv.data)['game']
         assert game['status'] == Game.STATUS_CREATED
-        assert len(game['users']) == 1
+        assert game['users'] == [self.get_test_user().serialize()]
 
 if __name__ == '__main__':
     unittest.main()
