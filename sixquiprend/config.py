@@ -14,7 +14,9 @@ app.config.update(dict(
     BOT_NAMES=['Azrael','Valdamar','Lüdwig','Seelöwe','Gallù'],
     HAND_SIZE=10,
     BOARD_SIZE=4,
-    MAX_PLAYER_NUMBER=6
+    MAX_PLAYER_NUMBER=6,
+    COLUMN_CARD_SIZE=5,
+    MAX_CARD_NUMBER=104
 ))
 app.config.from_envvar('SIXQUIPREND_SETTINGS', silent=True)
 db_path = app.config['DATABASE_USER'] + ':' + app.config['DATABASE_PASSWORD']

@@ -149,7 +149,7 @@ def get_game(game_id):
 @login_required
 def create_game():
     """Create a new game"""
-    game = Game()
+    game = Game(status=Game.STATUS_CREATED)
     game.users.append(current_user)
     db.session.add(game)
     db.session.commit()
@@ -168,7 +168,7 @@ def enter_game(game_id):
         error = 'Game has already ' + str(app.config['MAX_PLAYER_NUMBER'])
         + ' players'
         return jsonify(error=error), 400
-    if current_user in game.users:
+    if current_user in game.users.all():
         return jsonify(error='Cannot enter twice in a game'), 400
     game.users.append(current_user)
     db.session.add(game)
@@ -185,7 +185,7 @@ def get_available_bots_for_game(game_id):
     bots = User.query.filter(User.urole == User.BOT_ROLE).all()
     available_bots = []
     for bot in bots:
-        if not bot in game.users:
+        if not bot in game.users.all():
             available_bots.append(bot)
     return jsonify(available_bots=available_bots)
 
@@ -221,7 +221,7 @@ def leave_game(game_id):
     game = Game.query.get(game_id)
     if not game:
         return jsonify(error='No game found'), 404
-    if current_user not in game.users:
+    if current_user not in game.users.all():
         return jsonify(error='Not in game'), 400
     game.users.remove(current_user)
     db.session.add(game)
@@ -343,13 +343,12 @@ def get_game_chosen_cards(game_id):
         return jsonify(error='No game found'), 404
     if game.status != Game.STATUS_STARTED:
         return jsonify(error='Can only show chosen cards for a started game'), 400
-    if current_user.is_game_owner(game):
-        for user in game.users.all():
-            if user.get_urole() == User.BOT_ROLE:
-                if user.has_chosen_card(game_id):
-                    user.choose_card_for_game(game_id, None)
+    if ChosenCard.query.filter(game_id == game_id).count() < game.users.count():
+        for bot in game.users.query.filter(urole == User.BOT_ROLE).all():
+            if not bot.has_chosen_card(game_id):
+                bot.choose_card_for_game(game_id, None)
     user_count = game.users.count()
-    chosen_cards = ChosenCard.query.filter(game_id=game_id)
+    chosen_cards = ChosenCard.query.filter(game_id == game_id)
     if chosen_cards.count() < user_count:
         return jsonify(error='Some users haven\'t chosen a card'), 400
     return jsonify(chosen_cards=chosen_cards)
@@ -357,7 +356,9 @@ def get_game_chosen_cards(game_id):
 @app.route('/games/<int:game_id>/turns/resolve', methods=['POST'])
 @login_required
 def resolve_game_turn(game_id):
-    """Resolve a game turn (only available to game owner)"""
+    """Resolve a game turn (only available to game owner). This call places the
+    lowest value card if possible and returns the updated column and the user
+    game heap, else returns the user_id that must choose a column to replace"""
     game = Game.query.get(game_id)
     if not game:
         return jsonify(error='No game found'), 404
@@ -368,15 +369,15 @@ def resolve_game_turn(game_id):
     if game.chosen_cards.count() == 0:
         return jsonify(error='All cards have been placed'), 400
     try:
-        chosen_column = game.resolve_turn()
+        [chosen_column, user_game_heap] = game.resolve_turn()
     except NoSuitableColumnException as e:
         return jsonify(user_id=e.value), 201
-    return jsonify(chosen_column=chosen_column), 201
+    return jsonify(chosen_column=chosen_column, user_game_heap=user_game_heap), 201
 
 @app.route('/games/<int:game_id>/columns/<int:column_id>', methods=['POST'])
 @login_required
 def choose_column_for_card(game_id, column_id):
-    """Choose a column for a card in given game (when a user must choose a
+    """Choose a column for your card in a game (when a user must choose a
     column to replace)"""
     game = Game.query.get(game_id)
     if not game:

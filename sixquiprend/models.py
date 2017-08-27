@@ -55,33 +55,34 @@ class User(db.Model):
     def is_game_owner(self, game):
         return game.users.first() == self
 
+    def get_game_heap(self, game_id):
+        return Heap.query.filter(user_id == self.id, game_id==game_id).first()
+
+    def get_game_hand(self, game_id):
+        return Hand.query.filter(user_id == self.id, game_id==game_id).first()
+
+    def has_chosen_card(self, game_id):
+        return ChosenCard.query.filter(user_id == self.id,
+                game_id == game_id).count() == 1
+
+    def get_chosen_card(self, game_id):
+        return ChosenCard.query.filter(user_id == self.id,
+                game_id == game_id).first()
+
     def choose_card_for_game(self, game_id, card_id):
         hand = self.get_game_hand(game_id)
         if card_id == None:
-            card = hand.cards.all().pop(random.randrange(len(hand.cards.count())))
+            index = random.randrange(len(hand.cards.count()))
+            card = hand.cards.pop(index)
         else:
-            card = hand.cards.query().filter(card_id==card_id).first()
-            hand.cards.all().remove(card)
+            card = hand.cards.get(card_id)
+        hand.cards.all().remove(card)
         db.session.add(hand)
         chosen_card = ChosenCard(game_id=game_id, user_id=self.id,
             card_id=card_id)
         db.session.add(chosen_card)
         db.session.commit()
         return chosen_card
-
-    def get_game_heap(self, game_id):
-        return Heap.query.filter(user_id=self.id, game_id=game_id).first()
-
-    def get_game_hand(self, game_id):
-        return Hand.query.filter(user_id=self.id, game_id=game_id).first()
-
-    def has_chosen_card(self, game_id):
-        return ChosenCard.query.filter(user_id=self.id,
-                game_id=game_id).count() == 1
-
-    def get_chosen_card(self, game_id):
-        return ChosenCard.query.filter(user_id=self.id,
-                game_id=game_id).first()
 
     def serialize(self):
         return {
@@ -114,68 +115,6 @@ class Game(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     status = db.Column(db.Integer, nullable=False, default=STATUS_CREATED)
 
-    def get_lowest_value_column(self):
-        column_value = 9000
-        for column in self.columns:
-            tmp_column_value = column.get_value()
-            if tmp_column_value < column_value:
-                lowest_value_column = column
-        return lowest_value_column
-
-    def get_suitable_column(self, chosen_card):
-        diff = 104
-        user_game_heap_changed = False
-        for column in self.columns.all():
-            last_card = columns.cards.order_by(model.Card.number.asc()).last()
-            diff_temp = chosen_card.number - last_card.number
-            if diff_temp > 0 and diff_temp < diff:
-                diff = diff_temp
-                chosen_column = column
-        if diff == 104:
-            if chosen_card.user.get_urole() == User.USER_ROLE_BOT:
-                chosen_column = self.get_lowest_value_column()
-                chosen_column.replace_by_card(chosen_card)
-            else:
-                raise NoSuitableColumnException(chosen_card.user_id)
-        return chosen_column
-
-    def resolve_turn(self):
-        chosen_card = self.chosen_cards.join(cards,
-                chosen_cards.card_id==cards.id).order_by(model.Card.number.asc()).first()
-        if not chosen_card:
-            return
-        chosen_column = self.get_suitable_column(chosen_card)
-        if chosen_column.cards.count() == 5:
-            user_game_heap = user.get_game_heap(self.id)
-            user_game_heap.cards.append(chosen_column.cards)
-            db.session.add(user_game_heap)
-            chosen_column.cards = []
-            db.session.add(chosen_column)
-            db.session.commit()
-            user_game_heap_changed = True
-        chosen_column.cards.append(chosen_cards.card)
-        db.session.add(chosen_column)
-        db.session.delete(chosen_card)
-        db.session.commit()
-        self.check_status()
-        return chosen_column
-
-    def setup_game(self):
-        max_card_number = db.session.query(func.max(Card.number)).scalar()
-        card_set = list(range(1,max_card_number + 1))
-        for user in self.users.all():
-            user_hand = Hand(user=user, game=self)
-            for i in range(app.config['HAND_SIZE']):
-                card_number = card_set.pop(random.randrange(len(card_set)))
-                user_hand.cards.append(Card.query.filter(Card.number==card_number).first())
-                db.session.add(user_hand)
-        for i in range(app.config['BOARD_SIZE']):
-            column = Column(game_id=self.id)
-            card_number = card_set.pop(random.randrange(len(card_set)))
-            column.cards.append(Card.query.filter(Card.number==card_number).first())
-            db.session.add(column)
-        db.session.commit()
-
     def get_results(self):
         result = {}
         for user in self.users.all():
@@ -183,14 +122,77 @@ class Game(db.Model):
             result[user.username] = user_game_heap.get_value()
         return results
 
+    def get_user(self, user_id):
+        return self.users.query.get(user_id)
+
+    def get_columns(self):
+        return Column.query.filter(game_id == self.id).all()
+
+    def get_lowest_value_column(self):
+        column_value = 9000
+        for column in self.get_columns():
+            tmp_column_value = column.get_value()
+            if tmp_column_value < column_value:
+                lowest_value_column = column
+            elif tmp_column_value == column_value and random.random() > 0.5:
+                lowest_value_column = column
+        return lowest_value_column
+
+    def get_suitable_column(self, chosen_card):
+        diff = 9000
+        chosen_column = None
+        for column in self.get_columns():
+            last_card = column.cards.order_by(model.Card.number.asc()).last()
+            diff_temp = chosen_card.number - last_card.number
+            if diff_temp > 0 and diff_temp < diff:
+                diff = diff_temp
+                chosen_column = column
+        if chosen_column == None:
+            if chosen_card.get_user().get_urole() == User.USER_ROLE_BOT:
+                chosen_column = self.get_lowest_value_column()
+                chosen_column.replace_by_card(chosen_card)
+            else:
+                raise NoSuitableColumnException(chosen_card.user_id)
+        return chosen_column
+
+    def resolve_turn(self):
+        chosen_card = self.chosen_cards \
+                .join(cards, chosen_cards.card_id==cards.id) \
+                .order_by(model.Card.number.asc()) \
+                .first()
+        chosen_column = self.get_suitable_column(chosen_card)
+        user_game_heap = chosen_card.get_user().get_game_heap(self.id)
+        if chosen_column.cards.count() == app.config['COLUMN_CARD_SIZE']:
+            user_game_heap.cards.append(chosen_column.cards)
+            db.session.add(user_game_heap)
+            chosen_column.cards = []
+        chosen_column.cards.append(chosen_cards.card)
+        db.session.add(chosen_column)
+        db.session.delete(chosen_card)
+        db.session.commit()
+        self.check_status()
+        return [chosen_column, user_game_heap]
+
+    def setup_game(self):
+        card_set = list(range(1, app.config['MAX_CARD_NUMBER'] + 1))
+        for user in self.users.all():
+            user_hand = Hand(user_id=user.id, game_id=self.id)
+            for i in range(app.config['HAND_SIZE']):
+                card_number = card_set.remove(random.randrange(len(card_set)))
+                user_hand.cards.append(Card.query.filter(Card.number == card_number).first())
+                db.session.add(user_hand)
+        for i in range(app.config['BOARD_SIZE']):
+            column = Column(game_id=self.id)
+            card_number = card_set.remove(random.randrange(len(card_set)))
+            column.cards.append(Card.query.filter(Card.number == card_number).first())
+            db.session.add(column)
+        db.session.commit()
+
     def check_status(self):
         if self.users.first().get_game_hand(self.id).cards.count() == 0:
             self.status = Game.FINISHED
             db.session.add(self)
             db.session.commit()
-
-    def get_user(self, user_id):
-        return self.users.query.filter(id=user_id).first()
 
     def serialize(self):
         return {
@@ -211,10 +213,10 @@ class Column(db.Model):
             backref=db.backref('columns', lazy='dynamic'))
 
     def replace_by_card(self, chosen_card):
-        user_game_heap = chosen_card.user.get_game_heap(chosen_card.game_id)
-        user_game_heap.cards.appen(self.cards)
+        user_game_heap = chosen_card.get_user().get_game_heap(chosen_card.game_id)
+        user_game_heap.cards.append(self.cards.all())
         db.session.add(user_game_heap)
-        self.cards = chosen_card.card
+        self.cards = chosen_card.get_card()
         db.session.add(self)
         db.session.delete(chosen_card)
         db.session.commit()
@@ -280,6 +282,12 @@ class ChosenCard(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     game_id = db.Column(db.Integer, db.ForeignKey('game.id'))
     card_id = db.Column(db.Integer, db.ForeignKey('card.id'))
+
+    def get_user(self):
+        return User.query.get(self.user_id)
+
+    def get_card(self):
+        return Card.query.get(self.card_id)
 
     def serialize(self):
         return {

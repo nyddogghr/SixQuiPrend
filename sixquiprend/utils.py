@@ -29,7 +29,7 @@ def populate_db():
 
 def add_cards():
     if Card.query.count() == 0:
-        for i in range(1, 105):
+        for i in range(1, app.config['MAX_CARD_NUMBER'] + 1):
             cow_value = 0
             if i % 10 == 5:
                 cow_value += 2
