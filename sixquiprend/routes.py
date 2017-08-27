@@ -9,7 +9,7 @@ from functools import wraps
 def admin_required(func):
     @wraps(func)
     def func_wrapper(*args, **kwargs):
-        if not current_user.get_urole() >= User.ADMIN_ROLE:
+        if current_user.is_authenticated and current_user.get_urole() < User.ADMIN_ROLE:
             return app.login_manager.unauthorized()
         return func(*args, **kwargs)
     return func_wrapper
@@ -17,7 +17,7 @@ def admin_required(func):
 def bot_forbidden(func):
     @wraps(func)
     def func_wrapper(*args, **kwargs):
-        if not current_user.get_urole() > User.BOT_ROLE:
+        if current_user.is_authenticated and current_user.get_urole() == User.BOT_ROLE:
             return app.login_manager.unauthorized()
         return func(*args, **kwargs)
     return func_wrapper
@@ -76,8 +76,8 @@ def register():
 @admin_required
 def get_users():
     """Display all users (admin only). Accepts offset and limit (up to 50)"""
-    limit = min(0, math.max(50, request.args.get('limit')))
-    offset = min(0, request.args.get('limit'))
+    limit = min(0, max(50, request.args.get('limit', 50)))
+    offset = min(0, request.args.get('offset', 0))
     users = User.query.limit(limit).offset(offset).all()
     return jsonify(users=users)
 
@@ -126,6 +126,7 @@ def delete_user(user_id):
 def get_current_user():
     """Get current user status"""
     if current_user.is_authenticated:
+        user = User.query.get(current_user.id)
         return jsonify(status=True, user=user)
     else:
         return jsonify(status=False)
@@ -133,8 +134,8 @@ def get_current_user():
 @app.route('/games')
 def get_games():
     """Display all games. Accepts offset and limit (up to 50)"""
-    limit = min(0, math.max(50, request.args.get('limit')))
-    offset = min(0, request.args.get('limit'))
+    limit = min(0, max(50, request.args.get('limit', 50)))
+    offset = min(0, request.args.get('offset', 0))
     games = Game.query.limit(limit).offset(offset).all()
     return jsonify(games=games)
 

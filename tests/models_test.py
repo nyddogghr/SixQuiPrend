@@ -8,7 +8,7 @@ from sixquiprend.utils import *
 import json
 import unittest
 
-class SixquiprendTestCase(unittest.TestCase):
+class ModelsTestCase(unittest.TestCase):
 
     USERNAME = 'User'
     PASSWORD = 'Password'
@@ -48,23 +48,8 @@ class SixquiprendTestCase(unittest.TestCase):
         with app.app_context():
             self.app.post('/logout', content_type='application/json')
 
-    def test_get_games(self):
-        rv = self.app.get('/games')
-        assert rv.status_code == 200
-        assert json.loads(rv.data) == {'games':[]}
-
-    def test_create_game(self):
-        rv = self.app.get('/games')
-        assert json.loads(rv.data) == {'games':[]}
-        rv = self.app.post('/games')
-        assert rv.status_code == 401
-
-        self.login()
-        rv = self.app.post('/games', content_type='application/json')
-        assert rv.status_code == 201
-        game = json.loads(rv.data)['game']
-        assert game['status'] == Game.GAME_STATUS_CREATED
-        assert len(game['users'])== 1
+    def test_get_heap_value(self):
+        assert(True)
 
 if __name__ == '__main__':
     unittest.main()

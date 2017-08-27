@@ -49,7 +49,7 @@
           });
         };
 
-        $http.get('/current_user')
+        $http.get('/users/current')
         .then(function(response) {
           $scope.is_logged_in = response.data.is_logged_in;
         }, function(response) {
