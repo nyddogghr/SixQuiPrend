@@ -1,6 +1,6 @@
 from sixquiprend.sixquiprend import app, db
+from sqlalchemy import func
 from passlib.hash import bcrypt
-import math
 import random
 
 class NoSuitableColumnException(Exception):
@@ -56,10 +56,10 @@ class User(db.Model):
         return game.users.first() == self
 
     def get_game_heap(self, game_id):
-        return Heap.query.filter(user_id == self.id, game_id==game_id).first()
+        return Heap.query.filter(Heap.user_id == self.id, Heap.game_id == game_id).first()
 
     def get_game_hand(self, game_id):
-        return Hand.query.filter(user_id == self.id, game_id==game_id).first()
+        return Hand.query.filter(Hand.user_id == self.id, Hand.game_id == game_id).first()
 
     def has_chosen_card(self, game_id):
         return ChosenCard.query.filter(user_id == self.id,
@@ -72,11 +72,11 @@ class User(db.Model):
     def choose_card_for_game(self, game_id, card_id):
         hand = self.get_game_hand(game_id)
         if card_id == None:
-            index = random.randrange(len(hand.cards.count()))
+            index = random.randrange(len(hand.cards))
             card = hand.cards.pop(index)
         else:
-            card = hand.cards.get(card_id)
-        hand.cards.all().remove(card)
+            card = [card for card in hand.cards if card.id == card_id][0]
+        hand.cards.remove(card)
         db.session.add(hand)
         chosen_card = ChosenCard(game_id=game_id, user_id=self.id,
             card_id=card_id)
@@ -116,17 +116,17 @@ class Game(db.Model):
     status = db.Column(db.Integer, nullable=False, default=STATUS_CREATED)
 
     def get_results(self):
-        result = {}
+        results = {}
         for user in self.users.all():
             user_game_heap = user.get_game_heap(self.id)
-            result[user.username] = user_game_heap.get_value()
+            results[user.username] = user_game_heap.get_value()
         return results
 
     def get_user(self, user_id):
         return self.users.query.get(user_id)
 
     def get_columns(self):
-        return Column.query.filter(game_id == self.id).all()
+        return Column.query.filter(Column.game_id == self.id).all()
 
     def get_lowest_value_column(self):
         column_value = 9000
@@ -134,6 +134,7 @@ class Game(db.Model):
             tmp_column_value = column.get_value()
             if tmp_column_value < column_value:
                 lowest_value_column = column
+                column_value = tmp_column_value
             elif tmp_column_value == column_value and random.random() > 0.5:
                 lowest_value_column = column
         return lowest_value_column
@@ -142,13 +143,13 @@ class Game(db.Model):
         diff = 9000
         chosen_column = None
         for column in self.get_columns():
-            last_card = column.cards.order_by(model.Card.number.asc()).last()
-            diff_temp = chosen_card.number - last_card.number
+            last_card = sorted(column.cards, key=lambda card: card.number)[-1]
+            diff_temp = chosen_card.get_card().number - last_card.number
             if diff_temp > 0 and diff_temp < diff:
-                diff = diff_temp
                 chosen_column = column
+                diff = diff_temp
         if chosen_column == None:
-            if chosen_card.get_user().get_urole() == User.USER_ROLE_BOT:
+            if chosen_card.get_user().get_urole() == User.BOT_ROLE:
                 chosen_column = self.get_lowest_value_column()
                 chosen_column.replace_by_card(chosen_card)
             else:
@@ -156,17 +157,17 @@ class Game(db.Model):
         return chosen_column
 
     def resolve_turn(self):
-        chosen_card = self.chosen_cards \
-                .join(cards, chosen_cards.card_id==cards.id) \
-                .order_by(model.Card.number.asc()) \
+        chosen_card = ChosenCard.query.filter(ChosenCard.game_id == self.id) \
+                .join(Card) \
+                .order_by(Card.number.asc()) \
                 .first()
         chosen_column = self.get_suitable_column(chosen_card)
         user_game_heap = chosen_card.get_user().get_game_heap(self.id)
-        if chosen_column.cards.count() == app.config['COLUMN_CARD_SIZE']:
-            user_game_heap.cards.append(chosen_column.cards)
+        if len(chosen_column.cards) == app.config['COLUMN_CARD_SIZE']:
+            user_game_heap.cards += chosen_column.cards
             db.session.add(user_game_heap)
             chosen_column.cards = []
-        chosen_column.cards.append(chosen_cards.card)
+        chosen_column.cards.append(chosen_card.get_card())
         db.session.add(chosen_column)
         db.session.delete(chosen_card)
         db.session.commit()
@@ -174,23 +175,30 @@ class Game(db.Model):
         return [chosen_column, user_game_heap]
 
     def setup_game(self):
+        self.status = Game.STATUS_STARTED
         card_set = list(range(1, app.config['MAX_CARD_NUMBER'] + 1))
         for user in self.users.all():
             user_hand = Hand(user_id=user.id, game_id=self.id)
             for i in range(app.config['HAND_SIZE']):
-                card_number = card_set.remove(random.randrange(len(card_set)))
-                user_hand.cards.append(Card.query.filter(Card.number == card_number).first())
+                index = random.randrange(len(card_set))
+                card_number = card_set.pop(index)
+                card = Card.query.filter(Card.number == card_number).first()
+                user_hand.cards.append(card)
                 db.session.add(user_hand)
+            user_heap = Heap(user_id=user.id, game_id=self.id)
+            db.session.add(user_heap)
         for i in range(app.config['BOARD_SIZE']):
             column = Column(game_id=self.id)
-            card_number = card_set.remove(random.randrange(len(card_set)))
-            column.cards.append(Card.query.filter(Card.number == card_number).first())
+            index = random.randrange(len(card_set))
+            card_number = card_set.pop(index)
+            card = Card.query.filter(Card.number == card_number).first()
+            column.cards.append(card)
             db.session.add(column)
         db.session.commit()
 
     def check_status(self):
-        if self.users.first().get_game_hand(self.id).cards.count() == 0:
-            self.status = Game.FINISHED
+        if len(self.users.first().get_game_hand(self.id).cards) == 0:
+            self.status = Game.STATUS_FINISHED
             db.session.add(self)
             db.session.commit()
 
@@ -214,18 +222,14 @@ class Column(db.Model):
 
     def replace_by_card(self, chosen_card):
         user_game_heap = chosen_card.get_user().get_game_heap(chosen_card.game_id)
-        user_game_heap.cards.append(self.cards.all())
+        user_game_heap.cards += self.cards
         db.session.add(user_game_heap)
-        self.cards = chosen_card.get_card()
+        self.cards = [chosen_card.get_card()]
         db.session.add(self)
-        db.session.delete(chosen_card)
         db.session.commit()
 
     def get_value(self):
         return sum(card.cow_value for card in self.cards)
-
-    def get_columns(self):
-        return self.columns.all()
 
     def serialize(self):
         return {

@@ -47,7 +47,7 @@ def add_cards():
 def add_admin():
     if not User.query.filter(User.username == app.config['ADMIN_USERNAME']).first():
         admin = User(username=app.config['ADMIN_USERNAME'],
-                password=bcrypt.encrypt(app.config['ADMIN_PASSWORD']),
+                password=bcrypt.hash(app.config['ADMIN_PASSWORD']),
                 urole=User.ADMIN_ROLE, active=True)
         db.session.add(admin)
         db.session.commit()
@@ -58,7 +58,7 @@ def add_bots():
         if not User.query.filter(User.username == bot_name).first():
             # password is irrelevant, as bots cannot login
             admin = User(username=bot_name,
-                    password=bcrypt.encrypt(bot_name),
+                    password=bcrypt.hash(bot_name),
                     urole=User.BOT_ROLE, active=True)
             db.session.add(admin)
             db.session.commit()

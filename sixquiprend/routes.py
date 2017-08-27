@@ -165,7 +165,7 @@ def enter_game(game_id):
         return jsonify(error='No game found'), 404
     if game.status != Game.STATUS_CREATED:
         return jsonify(error='Cannot enter already started game'), 400
-    if game.users.count() == app.config['MAX_PLAYER_NUMBER']:
+    if len(game.users) == app.config['MAX_PLAYER_NUMBER']:
         error = 'Game has already ' + str(app.config['MAX_PLAYER_NUMBER'])
         + ' players'
         return jsonify(error=error), 400
@@ -199,7 +199,7 @@ def add_bot_to_game(game_id, user_id):
         return jsonify(error='No game found'), 404
     if game.status != Game.STATUS_CREATED:
         return jsonify(error='Cannot enter already started game'), 400
-    if game.users.count() == app.config['MAX_PLAYER_NUMBER']:
+    if len(game.users) == app.config['MAX_PLAYER_NUMBER']:
         error = 'Game has already ' + str(app.config['MAX_PLAYER_NUMBER'])
         + ' players'
         return jsonify(error=error), 400
@@ -242,7 +242,7 @@ def start_game(game_id):
         return jsonify(error='Cannot start game with less than 2 players'), 400
     if not current_user.is_game_owner(game):
         return jsonify(error='Only game owner can start it'), 403
-    game.status = Game.STARTED
+    game.setup_game()
     db.session.add(game)
     db.session.commit()
     return jsonify(game=game)
@@ -344,11 +344,11 @@ def get_game_chosen_cards(game_id):
         return jsonify(error='No game found'), 404
     if game.status != Game.STATUS_STARTED:
         return jsonify(error='Can only show chosen cards for a started game'), 400
-    if ChosenCard.query.filter(game_id == game_id).count() < game.users.count():
+    if ChosenCard.query.filter(game_id == game_id).count() < len(game.users):
         for bot in game.users.query.filter(urole == User.BOT_ROLE).all():
             if not bot.has_chosen_card(game_id):
                 bot.choose_card_for_game(game_id, None)
-    user_count = game.users.count()
+    user_count = len(game.users)
     chosen_cards = ChosenCard.query.filter(game_id == game_id)
     if chosen_cards.count() < user_count:
         return jsonify(error='Some users haven\'t chosen a card'), 400
@@ -367,7 +367,7 @@ def resolve_game_turn(game_id):
         return jsonify(error='Can only resolve a turn for a started game'), 400
     if not current_user.is_game_owner(game):
         return jsonify(error='Only game creator can resolve a turn'), 403
-    if game.chosen_cards.count() == 0:
+    if len(game.chosen_cards) == 0:
         return jsonify(error='All cards have been placed'), 400
     try:
         [chosen_column, user_game_heap] = game.resolve_turn()
