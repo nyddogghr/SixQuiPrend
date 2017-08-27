@@ -42,6 +42,5 @@ France (http://www.gigamic.com/jeu/6-qui-prend).
 
 # TODO
 * Delete games
-* Count points
 * Statistics
 * Unit tests
