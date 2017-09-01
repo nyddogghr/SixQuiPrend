@@ -7,9 +7,15 @@ python:
 services:
   - postgresql
 # command to install dependencies
-install: "pip install -e ."
+install:
+  - pip install -e .
+  - pip install codecov pytest-cov
 before_script:
   - psql -c "create user sixquiprend with password 'sixquiprend';" -U postgres
   - psql -c "alter user sixquiprend createdb;" -U postgres
 # command to run tests
-script: python setup.py test
+script: py.test --cov=./
+after_success:
+  - codecov
+notifications:
+  email: false
