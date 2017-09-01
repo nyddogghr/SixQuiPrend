@@ -44,4 +44,3 @@ France (http://www.gigamic.com/jeu/6-qui-prend).
 # TODO
 * Statistics
 * Unit tests
-* Code coverage (+ github pages)
