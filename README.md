@@ -25,6 +25,7 @@ France (http://www.gigamic.com/jeu/6-qui-prend).
 * Get all games
 * Get a game (with points)
 * Create a game
+* Delete a game
 * Register into a game
 * Display available bots for a game
 * Add a bot to a game
@@ -41,7 +42,6 @@ France (http://www.gigamic.com/jeu/6-qui-prend).
 * Choose a column if needed
 
 # TODO
-* Delete games
 * Statistics
 * Unit tests
 * Code coverage (+ github pages)

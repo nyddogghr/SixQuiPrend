@@ -136,6 +136,8 @@ def get_games():
 def get_game(game_id):
     """Display a game with its results"""
     game = Game.query.get(game_id)
+    if not game:
+        return jsonify(error='No game found'), 404
     result = game.get_results()
     return jsonify(game=game, results=results)
 
@@ -146,6 +148,18 @@ def create_game():
     game = Game(status=Game.STATUS_CREATED)
     game.users.append(current_user)
     db.session.add(game)
+    db.session.commit()
+    return jsonify(game=game), 201
+
+@app.route('/games', methods=['DELETE'])
+@login_required
+@admin_required
+def delete_game(game_id):
+    """Delete a game (admin only)"""
+    game = Game.query.get(game_id)
+    if not game:
+        return jsonify(error='No game found'), 404
+    db.session.delete(game)
     db.session.commit()
     return jsonify(game=game), 201
 
