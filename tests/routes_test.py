@@ -22,31 +22,28 @@ class RoutesTestCase(unittest.TestCase):
         app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://' + db_path
         app.config['TESTING'] = True
         self.app = app.test_client()
-        with app.app_context():
-            db.create_all()
-            if not User.query.filter(User.username == self.USERNAME).first():
-                user = User(username=self.USERNAME,
-                        password=bcrypt.hash(self.PASSWORD),
-                        active=True)
-                db.session.add(user)
-                db.session.commit()
+        ctx = app.app_context()
+        ctx.push()
+        db.create_all()
+        if not User.query.filter(User.username == self.USERNAME).first():
+            user = User(username=self.USERNAME,
+                    password=bcrypt.hash(self.PASSWORD),
+                    active=True)
+            db.session.add(user)
+            db.session.commit()
 
     def tearDown(self):
-        self.app = app.test_client()
-        with app.app_context():
-            db.session.remove()
-            db.drop_all()
+        db.session.remove()
+        db.drop_all()
 
     def login(self):
-        with app.app_context():
-            self.app.post('/login', data=json.dumps(dict(
-                username=self.USERNAME,
-                password=self.PASSWORD,
-            )), content_type='application/json')
+        self.app.post('/login', data=json.dumps(dict(
+            username=self.USERNAME,
+            password=self.PASSWORD,
+        )), content_type='application/json')
 
     def logout(self):
-        with app.app_context():
-            self.app.post('/logout', content_type='application/json')
+        self.app.post('/logout', content_type='application/json')
 
     def test_login_logout(self):
         rv = self.app.get('/users/current')
