@@ -14,20 +14,11 @@ def admin_required(func):
         return func(*args, **kwargs)
     return func_wrapper
 
-def bot_forbidden(func):
-    @wraps(func)
-    def func_wrapper(*args, **kwargs):
-        if current_user.is_authenticated and current_user.get_urole() == User.BOT_ROLE:
-            return app.login_manager.unauthorized()
-        return func(*args, **kwargs)
-    return func_wrapper
-
 @app.route('/')
 def get_index():
     return render_template('index.html')
 
 @app.route('/login', methods=['POST'])
-@bot_forbidden
 def login():
     """Log in"""
     user = User.query \
@@ -35,6 +26,8 @@ def login():
     if user:
         if not user.is_active:
             return jsonify(error='User is inactive'), 403
+        if user.urole == User.BOT_ROLE:
+            return jsonify(error='Bots cannot login'), 401
         if user.verify_password(request.get_json()['password']):
             user.authenticated = True
             db.session.add(user)
@@ -57,7 +50,7 @@ def logout():
     logout_user()
     return jsonify(status=False), 201
 
-@app.route('/register', methods=['POST'])
+@app.route('/users/register', methods=['POST'])
 def register():
     """Register a new user"""
     user = User.query \

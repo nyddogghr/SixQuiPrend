@@ -37,27 +37,65 @@ class RoutesTestCase(unittest.TestCase):
         db.drop_all()
 
     def login(self):
-        self.app.post('/login', data=json.dumps(dict(
+        rv = self.app.post('/login', data=json.dumps(dict(
             username=self.USERNAME,
             password=self.PASSWORD,
         )), content_type='application/json')
+        assert rv.status_code == 201
 
     def logout(self):
-        self.app.post('/logout', content_type='application/json')
+        rv = self.app.post('/logout', content_type='application/json')
+        assert rv.status_code == 201
+
+class LoginLogoutTestCase(RoutesTestCase):
 
     def test_login_logout(self):
         rv = self.app.get('/users/current')
+        assert rv.status_code == 200
         assert json.loads(rv.data) == {'status':False}
 
         self.login()
         rv = self.app.get('/users/current')
+        assert rv.status_code == 200
         response = json.loads(rv.data)
         assert response['status'] == True
         assert response['user']['username'] == self.USERNAME
 
         self.logout()
         rv = self.app.get('/users/current')
+        assert rv.status_code == 200
         assert json.loads(rv.data) == {'status':False}
+
+    def test_bot_forbidden(self):
+        bot_username = 'bot'
+        bot_password = 'bot'
+        bot = User(username=bot_username,
+                password=bcrypt.hash(bot_password),
+                active=True, urole=User.BOT_ROLE)
+        db.session.add(bot)
+        db.session.commit()
+        rv = self.app.post('/login', data=json.dumps(dict(
+            username=bot_username,
+            password=bot_password,
+        )), content_type='application/json')
+        assert rv.status_code == 401
+        rv = self.app.get('/users/current')
+        assert rv.status_code == 200
+        assert json.loads(rv.data) == {'status':False}
+
+    def test_register(self):
+        username = 'toto'
+        password = 'toto'
+        rv = self.app.post('/users/register', data=json.dumps(dict(
+            username=username,
+            password=password,
+        )), content_type='application/json')
+        assert rv.status_code == 201
+        new_user = User.query.filter(username == username,
+                password == password).first()
+        assert new_user.active == True
+
+class GameTestCase(RoutesTestCase):
 
     def test_get_games(self):
         rv = self.app.get('/games')

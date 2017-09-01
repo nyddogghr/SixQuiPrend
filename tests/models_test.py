@@ -30,7 +30,9 @@ class ModelsTestCase(unittest.TestCase):
         db.session.remove()
         db.drop_all()
 
-    def test_user_choose_card_for_game(self):
+class UserTestCase(ModelsTestCase):
+
+    def test_choose_card_for_game(self):
         user = User(username='toto', password='toto')
         db.session.add(user)
         game = Game(status=Game.STATUS_STARTED)
@@ -55,7 +57,7 @@ class ModelsTestCase(unittest.TestCase):
                 ChosenCard.card_id == card.id).first()
         assert chosen_card != None
 
-    def test_user_needs_to_choose_column(self):
+    def test_needs_to_choose_column(self):
         user = User(username='toto', password='toto')
         db.session.add(user)
         game = Game(status=Game.STATUS_STARTED)
@@ -83,7 +85,9 @@ class ModelsTestCase(unittest.TestCase):
         db.session.commit()
         assert user.needs_to_choose_column(game.id) == True
 
-    def test_game_get_results(self):
+class GameTestCase(ModelsTestCase):
+
+    def test_get_results(self):
        user_one = User(username='toto', password='toto')
        user_two = User(username='titi', password='titi')
        db.session.add(user_one)
@@ -108,7 +112,7 @@ class ModelsTestCase(unittest.TestCase):
        assert results['toto'] == 1
        assert results['titi'] == 5
 
-    def test_game_get_lowest_value_column(self):
+    def test_get_lowest_value_column(self):
         game = Game(status=Game.STATUS_STARTED)
         db.session.add(game)
         card_one = Card(number=1, cow_value=10)
@@ -144,7 +148,7 @@ class ModelsTestCase(unittest.TestCase):
         assert chosen_column_ids.index(column_two.id) >= 0
         assert chosen_column_ids.index(column_two_bis.id) >= 0
 
-    def test_game_get_suitable_column_exception(self):
+    def test_get_suitable_column_exception(self):
         user = User(username='toto', password='toto')
         db.session.add(user)
         game = Game(status=Game.STATUS_STARTED)
@@ -174,7 +178,7 @@ class ModelsTestCase(unittest.TestCase):
             game.get_suitable_column(chosen_card)
         assert e.exception.value == user.id
 
-    def test_game_get_suitable_column_user(self):
+    def test_get_suitable_column_user(self):
         user = User(username='toto', password='toto')
         db.session.add(user)
         game = Game(status=Game.STATUS_STARTED)
@@ -203,7 +207,7 @@ class ModelsTestCase(unittest.TestCase):
         suitable_column = game.get_suitable_column(chosen_card)
         assert suitable_column == column_two
 
-    def test_game_get_suitable_column_bot(self):
+    def test_get_suitable_column_bot(self):
         bot = User(username='titi', password='titi', urole = User.BOT_ROLE)
         db.session.add(bot)
         game = Game(status=Game.STATUS_STARTED)
@@ -237,7 +241,7 @@ class ModelsTestCase(unittest.TestCase):
         assert len(bot_heap.cards) == 1
         assert bot_heap.cards[0] == card_two
 
-    def test_game_resolve_turn_auto_bot(self):
+    def test_resolve_turn_auto_bot(self):
         user = User(username='toto', password='toto')
         bot = User(username='titi', password='titi', urole = User.BOT_ROLE)
         db.session.add(user)
@@ -286,7 +290,7 @@ class ModelsTestCase(unittest.TestCase):
         bot_chosen_card = ChosenCard.query.filter(ChosenCard.user_id == bot.id).first()
         assert bot_chosen_card == None
 
-    def test_game_resolve_turn_user_complete_column(self):
+    def test_resolve_turn_user_complete_column(self):
         app.config['COLUMN_CARD_SIZE'] = 1
         user = User(username='toto', password='toto')
         bot = User(username='titi', password='titi', urole = User.BOT_ROLE)
@@ -336,7 +340,7 @@ class ModelsTestCase(unittest.TestCase):
         user_chosen_card = ChosenCard.query.filter(ChosenCard.user_id == user.id).first()
         assert user_chosen_card == None
 
-    def test_game_setup_game(self):
+    def test_setup_game(self):
         populate_db()
         user = User(username='toto', password='toto')
         db.session.add(user)
@@ -352,7 +356,7 @@ class ModelsTestCase(unittest.TestCase):
         assert len(user.get_game_hand(game.id).cards) == app.config['HAND_SIZE']
         assert len(user.get_game_heap(game.id).cards) == 0
 
-    def test_game_check_status(self):
+    def test_check_status(self):
         user = User(username='toto', password='toto')
         db.session.add(user)
         game = Game(status=Game.STATUS_STARTED)
@@ -365,7 +369,9 @@ class ModelsTestCase(unittest.TestCase):
         game.check_status()
         assert game.status == Game.STATUS_FINISHED
 
-    def test_column_replace_by_card(self):
+class ColumnTestCase(ModelsTestCase):
+
+    def test_replace_by_card(self):
         user = User(username='toto', password='toto')
         db.session.add(user)
         game = Game(status=Game.STATUS_STARTED)
@@ -394,7 +400,7 @@ class ModelsTestCase(unittest.TestCase):
         expected_value = card_two.cow_value + card_three.cow_value
         assert user.get_game_heap(game.id).get_value() == expected_value
 
-    def test_column_get_value(self):
+    def test_get_value(self):
         column = Column()
         card_one = Card(number=1, cow_value=1)
         card_two = Card(number=2, cow_value=2)
@@ -402,7 +408,9 @@ class ModelsTestCase(unittest.TestCase):
         column.cards.append(card_two)
         assert column.get_value() == card_one.cow_value + card_two.cow_value
 
-    def test_heap_get_value(self):
+class HeapTestCase(ModelsTestCase):
+
+    def test_get_value(self):
         heap = Heap()
         card_one = Card(number=1, cow_value=1)
         card_two = Card(number=2, cow_value=2)
