@@ -24,6 +24,7 @@ class RoutesTestCase(unittest.TestCase):
         self.app = app.test_client()
         ctx = app.app_context()
         ctx.push()
+        create_db()
         db.create_all()
         if not User.query.filter(User.username == self.USERNAME).first():
             user = User(username=self.USERNAME,

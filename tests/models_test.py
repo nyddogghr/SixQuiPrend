@@ -24,6 +24,7 @@ class ModelsTestCase(unittest.TestCase):
         self.app = app.test_client()
         ctx = app.app_context()
         ctx.push()
+        create_db()
         db.create_all()
 
     def tearDown(self):

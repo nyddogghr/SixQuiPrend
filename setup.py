@@ -8,12 +8,14 @@ setup(
         'flask',
         'flask-sqlalchemy',
         'psycopg2',
+        'passlib',
+        'bcrypt',
         'flask-login',
     ],
     setup_requires=[
         'pytest-runner',
     ],
     tests_require=[
-        'pytest>=3.1',
+        'pytest',
     ],
 )
