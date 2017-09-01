@@ -1,6 +1,4 @@
-https://travis-ci.org/nyddogghr/SixQuiPrend.svg?branch=master
-
-# SixQuiPrend
+# SixQuiPrend [![Build Status](https://travis-ci.org/nyddogghr/SixQuiPrend.svg?branch=master)](https://travis-ci.org/nyddogghr/SixQuiPrend)
 API implementation of small card game "6 Qui Prend".
 
 # Original Game
