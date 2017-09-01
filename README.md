@@ -1,3 +1,5 @@
+https://travis-ci.org/nyddogghr/SixQuiPrend.svg?branch=master
+
 # SixQuiPrend
 API implementation of small card game "6 Qui Prend".
 
@@ -44,3 +46,4 @@ France (http://www.gigamic.com/jeu/6-qui-prend).
 * Delete games
 * Statistics
 * Unit tests
+* Code coverage (+ github pages)
