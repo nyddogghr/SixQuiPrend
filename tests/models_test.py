@@ -57,6 +57,35 @@ class ModelsTestCase(unittest.TestCase):
                     ChosenCard.card_id == card.id).first()
             assert chosen_card != None
 
+    def test_user_needs_to_choose_column(self):
+        with app.app_context():
+            user = User(username='toto', password='toto')
+            db.session.add(user)
+            game = Game(status=Game.STATUS_STARTED)
+            game.users.append(user)
+            db.session.add(game)
+            card_one = Card(number=1, cow_value=1)
+            db.session.add(card_one)
+            card_two = Card(number=2, cow_value=2)
+            db.session.add(card_two)
+            card_three = Card(number=3, cow_value=3)
+            db.session.add(card_three)
+            card_four = Card(number=4, cow_value=4)
+            db.session.add(card_four)
+            db.session.commit()
+            column_one = Column(game_id=game.id)
+            column_one.cards.append(card_two)
+            column_two = Column(game_id=game.id)
+            column_two.cards.append(card_three)
+            db.session.add(column_one)
+            db.session.add(column_two)
+            db.session.commit()
+            chosen_card = ChosenCard(card_id=card_one.id, user_id=user.id,
+                    game_id=game.id)
+            db.session.add(chosen_card)
+            db.session.commit()
+            assert user.needs_to_choose_column(game.id) == True
+
     def test_game_get_results(self):
         with app.app_context():
             user_one = User(username='toto', password='toto')

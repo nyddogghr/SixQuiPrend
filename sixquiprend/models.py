@@ -84,6 +84,23 @@ class User(db.Model):
         db.session.commit()
         return chosen_card
 
+    def needs_to_choose_column(self, game_id):
+        query = ChosenCard.query.filter(game_id == game_id,
+                ChosenCard.user_id == self.id)
+        if query.count() == 0:
+            return False
+        cc = query.first()
+        game = Game.query.filter(game_id == game_id).first()
+        try:
+            game.get_suitable_column(cc)
+        except NoSuitableColumnException as e:
+            if e.value == self.id:
+                return True
+            else:
+                return False
+        return False
+
+
     def serialize(self):
         return {
                 'id': self.id,

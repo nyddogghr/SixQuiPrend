@@ -272,7 +272,8 @@ def get_game_users(game_id):
 @app.route('/games/<int:game_id>/users/<int:user_id>/status')
 @login_required
 def get_user_game_status(game_id, user_id):
-    """Get user status (has or not chosen a card) for a given game"""
+    """Get user status (has or not chosen a card) for a given game, and
+    specifies if he needs to choose a column for his card"""
     game = Game.query.get(game_id)
     if not game:
         return jsonify(error='No game found'), 404
@@ -283,6 +284,7 @@ def get_user_game_status(game_id, user_id):
         return jsonify(error='No user found'), 404
     user = user.serialize()
     user['has_chosen_card'] = user.has_chosen_card(game_id)
+    user['needs_to_choose_column'] = user.needs_to_choose_column(game_id)
     return jsonify(user=user)
 
 @app.route('/games/<int:game_id>/users/<int:user_id>/heap')
