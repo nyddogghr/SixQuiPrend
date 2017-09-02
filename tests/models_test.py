@@ -80,6 +80,7 @@ class UserTestCase(ModelsTestCase):
         db.session.add(column_one)
         db.session.add(column_two)
         db.session.commit()
+        assert user.needs_to_choose_column(game.id) == False
         chosen_card = ChosenCard(card_id=card_one.id, user_id=user.id,
                 game_id=game.id)
         db.session.add(chosen_card)

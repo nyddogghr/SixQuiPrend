@@ -24,10 +24,10 @@ def login():
     user = User.query \
             .filter(User.username == request.get_json()['username']).first()
     if user:
-        if not user.is_active:
-            return jsonify(error='User is inactive'), 403
         if user.urole == User.BOT_ROLE:
             return jsonify(error='Bots cannot login'), 401
+        if not user.is_active():
+            return jsonify(error='User is inactive'), 403
         if user.verify_password(request.get_json()['password']):
             user.authenticated = True
             db.session.add(user)
@@ -66,12 +66,11 @@ def register():
 
 @app.route('/users', methods=['GET'])
 @login_required
-@admin_required
 def get_users():
     """Display all users (admin only). Accepts offset and limit (up to 50)"""
-    limit = min(0, max(50, request.args.get('limit', 50)))
-    offset = min(0, request.args.get('offset', 0))
-    users = User.query.limit(limit).offset(offset).all()
+    limit = max(0, min(50, int(request.args.get('limit', 50))))
+    offset = max(0, int(request.args.get('offset', 0)))
+    users = User.query.order_by(User.id).limit(limit).offset(offset).all()
     return jsonify(users=users)
 
 @app.route('/users/<int:user_id>/activate', methods=['PUT'])
@@ -127,9 +126,9 @@ def get_current_user():
 @app.route('/games')
 def get_games():
     """Display all games. Accepts offset and limit (up to 50)"""
-    limit = min(0, max(50, request.args.get('limit', 50)))
-    offset = min(0, request.args.get('offset', 0))
-    games = Game.query.limit(limit).offset(offset).all()
+    limit = min(0, max(50, int(request.args.get('limit', 50))))
+    offset = min(0, int(request.args.get('offset', 0)))
+    games = Game.query.order_by(Game.id).limit(limit).offset(offset).all()
     return jsonify(games=games)
 
 @app.route('/games/<int:game_id>')
@@ -190,7 +189,7 @@ def get_available_bots_for_game(game_id):
     game = Game.query.get(game_id)
     if not game:
         return jsonify(error='No game found'), 404
-    bots = User.query.filter(User.urole == User.BOT_ROLE).all()
+    bots = User.query.filter(User.urole == User.BOT_ROLE).order_by(User.id).all()
     available_bots = []
     for bot in bots:
         if not bot in game.users.all():
@@ -354,14 +353,15 @@ def get_game_chosen_cards(game_id):
     if game.status != Game.STATUS_STARTED:
         return jsonify(error='Can only show chosen cards for a started game'), 400
     if ChosenCard.query.filter(game_id == game_id).count() < len(game.users):
-        for bot in game.users.query.filter(urole == User.BOT_ROLE).all():
+        for bot in game.users.query.filter(urole == User.BOT_ROLE).order_by(User.id).all():
             if not bot.has_chosen_card(game_id):
                 bot.choose_card_for_game(game_id, None)
     user_count = len(game.users)
-    chosen_cards = ChosenCard.query.filter(game_id == game_id)
+    chosen_cards = ChosenCard.query.filter(game_id ==
+            game_id).order_by(ChosenCard.id)
     if chosen_cards.count() < user_count:
         return jsonify(error='Some users haven\'t chosen a card'), 400
-    return jsonify(chosen_cards=chosen_cards)
+    return jsonify(chosen_cards=chosen_cards.all())
 
 @app.route('/games/<int:game_id>/turns/resolve', methods=['POST'])
 @login_required

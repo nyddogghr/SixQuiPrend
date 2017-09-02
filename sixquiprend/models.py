@@ -6,8 +6,6 @@ import random
 class NoSuitableColumnException(Exception):
     def __init__(self, value):
         self.value = value
-    def __str__(self):
-        return 'User %i must choose a column to replace', value
 
 user_games = db.Table('user_games',
         db.Column('user_id', db.Integer, db.ForeignKey('user.id')),
@@ -94,10 +92,7 @@ class User(db.Model):
         try:
             game.get_suitable_column(cc)
         except NoSuitableColumnException as e:
-            if e.value == self.id:
-                return True
-            else:
-                return False
+            return True
         return False
 
 
