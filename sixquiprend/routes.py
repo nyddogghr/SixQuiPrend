@@ -126,8 +126,8 @@ def get_current_user():
 @app.route('/games')
 def get_games():
     """Display all games. Accepts offset and limit (up to 50)"""
-    limit = min(0, max(50, int(request.args.get('limit', 50))))
-    offset = min(0, int(request.args.get('offset', 0)))
+    limit = max(0, min(50, int(request.args.get('limit', 50))))
+    offset = max(0, int(request.args.get('offset', 0)))
     games = Game.query.order_by(Game.id).limit(limit).offset(offset).all()
     return jsonify(games=games)
 
@@ -137,7 +137,7 @@ def get_game(game_id):
     game = Game.query.get(game_id)
     if not game:
         return jsonify(error='No game found'), 404
-    result = game.get_results()
+    results = game.get_results()
     return jsonify(game=game, results=results)
 
 @app.route('/games', methods=['POST'])

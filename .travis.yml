@@ -17,5 +17,3 @@ before_script:
 script: py.test --cov=./
 after_success:
   - codecov
-notifications:
-  email: false

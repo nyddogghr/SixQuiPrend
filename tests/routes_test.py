@@ -155,7 +155,7 @@ class UsersTestCase(RoutesTestCase):
         assert len(users) == 2
         assert users[-1]['username'] == username
 
-        # limit and offset
+        # Test limit and offset
         rv = self.app.get('/users', query_string=dict(limit=1))
         assert rv.status_code == 200
         users = json.loads(rv.data)['users']
@@ -330,14 +330,57 @@ class UsersTestCase(RoutesTestCase):
 class GameTestCase(RoutesTestCase):
 
     def test_get_games(self):
+        game1 = Game()
+        game2 = Game()
+        db.session.add(game1)
+        db.session.add(game2)
+        db.session.commit()
         rv = self.app.get('/games')
         assert rv.status_code == 200
-        assert json.loads(rv.data) == {'games':[]}
+        games =  json.loads(rv.data)['games']
+        assert len(games) == 2
+        assert games[0]['id'] == game1.id
+        assert games[1]['id'] == game2.id
+
+        # Test limit and offset
+        rv = self.app.get('/games', query_string=dict(limit=1))
+        assert rv.status_code == 200
+        games =  json.loads(rv.data)['games']
+        assert len(games) == 1
+        assert games[0]['id'] == game1.id
+        rv = self.app.get('/games', query_string=dict(limit=1, offset=1))
+        assert rv.status_code == 200
+        games =  json.loads(rv.data)['games']
+        assert len(games) == 1
+        assert games[0]['id'] == game2.id
+
+    def test_get_game(self):
+        game = Game()
+        db.session.add(game)
+        db.session.commit()
+        self.login()
+        rv = self.app.get('/games/'+str(game.id))
+        assert rv.status_code == 200
+        game_response = json.loads(rv.data)['game']
+        assert game_response['id'] == game.id
+
+    def tes_get_game_errors(self):
+        # User not logged in
+        game = Game()
+        db.session.add(game)
+        db.session.commit()
+        rv = self.app.get('/games/'+str(game.id))
+        assert rv.status_code == 401
+
+        # Game not found
+        self.login()
+        rv = self.app.get('/games/0')
+        assert rv.status_code == 404
 
     def test_create_game(self):
         rv = self.app.get('/games')
-        assert json.loads(rv.data) == {'games':[]}
         assert rv.status_code == 200
+        assert json.loads(rv.data) == {'games':[]}
         rv = self.app.post('/games', content_type='application/json')
         assert rv.status_code == 401
 
