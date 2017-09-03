@@ -171,9 +171,9 @@ def enter_game(game_id):
         return jsonify(error='No game found'), 404
     if game.status != Game.STATUS_CREATED:
         return jsonify(error='Cannot enter already started game'), 400
-    if len(game.users) == app.config['MAX_PLAYER_NUMBER']:
-        error = 'Game has already ' + str(app.config['MAX_PLAYER_NUMBER'])
-        + ' players'
+    if game.users.count() == app.config['MAX_PLAYER_NUMBER']:
+        max_number = str(app.config['MAX_PLAYER_NUMBER'])
+        error = 'Game has already ' + max_number + ' players'
         return jsonify(error=error), 400
     if current_user in game.users.all():
         return jsonify(error='Cannot enter twice in a game'), 400

@@ -35,7 +35,7 @@ class ModelsTestCase(unittest.TestCase):
         username = 'User #'+str(User.query.count())
         password = 'Password'
         user = User(username=username,
-                password = bcrypt.hash(password),
+                password=bcrypt.hash(password),
                 active=True,
                 urole=urole)
         db.session.add(user)
