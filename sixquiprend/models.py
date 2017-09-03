@@ -4,8 +4,7 @@ from passlib.hash import bcrypt
 import random
 
 class NoSuitableColumnException(Exception):
-    def __init__(self, value):
-        self.value = value
+    pass
 
 class UserNotOwnerException(Exception):
     pass
@@ -237,6 +236,7 @@ class Game(db.Model):
         return {
                 'id': self.id,
                 'users': self.users.all(),
+                'owner_id': self.owner_id,
                 'status': self.status
                 }
 

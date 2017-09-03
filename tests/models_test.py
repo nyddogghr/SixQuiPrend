@@ -203,7 +203,7 @@ class GameTestCase(ModelsTestCase):
                 game.id)
         with self.assertRaises(NoSuitableColumnException) as e:
             game.get_suitable_column(chosen_card)
-        assert e.exception.value == user.id
+        assert e.exception.args[0] == user.id
 
     def test_get_suitable_column_user(self):
         user = self.create_user()

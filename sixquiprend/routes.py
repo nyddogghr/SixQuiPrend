@@ -225,7 +225,7 @@ def add_bot_to_game(game_id, user_id):
     db.session.commit()
     return jsonify(game=game), 201
 
-@app.route('/games/<int:game_id>/leave', methods=['POST'])
+@app.route('/games/<int:game_id>/leave', methods=['PUT'])
 @login_required
 def leave_game(game_id):
     """Leave a game (nobody likes rage quitters)"""
@@ -234,15 +234,15 @@ def leave_game(game_id):
         return jsonify(error='No game found'), 404
     if current_user not in game.users.all():
         return jsonify(error='Not in game'), 400
-    if current_user.is_game_owner(game.id):
+    if current_user.is_game_owner(game):
         try:
             game.remove_owner(current_user.id)
         except CannotRemoveOwnerException as e:
-            return jsonify(error=e), 400
+            return jsonify(error=e.args[0]), 400
     game.users.remove(current_user)
     db.session.add(game)
     db.session.commit()
-    return jsonify(game=game), 201
+    return jsonify(game=game), 200
 
 @app.route('/games/<int:game_id>/start', methods=['PUT'])
 @login_required
@@ -253,14 +253,14 @@ def start_game(game_id):
         return jsonify(error='No game found'), 404
     if game.status != Game.STATUS_CREATED:
         return jsonify(error='Cannot start an already started game'), 400
-    if game.users.length < 2:
+    if game.users.count() < 2:
         return jsonify(error='Cannot start game with less than 2 players'), 400
     if not current_user.is_game_owner(game):
         return jsonify(error='Only game owner can start it'), 403
     game.setup_game()
     db.session.add(game)
     db.session.commit()
-    return jsonify(game=game)
+    return jsonify(game=game), 200
 
 @app.route('/games/<int:game_id>/columns')
 @login_required
@@ -390,7 +390,7 @@ def resolve_game_turn(game_id):
     try:
         [chosen_column, user_game_heap] = game.resolve_turn()
     except NoSuitableColumnException as e:
-        return jsonify(user_id=e.value), 201
+        return jsonify(user_id=e.args[0]), 201
     return jsonify(chosen_column=chosen_column, user_game_heap=user_game_heap), 201
 
 @app.route('/games/<int:game_id>/columns/<int:column_id>', methods=['POST'])

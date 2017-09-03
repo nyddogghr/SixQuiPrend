@@ -399,8 +399,8 @@ class GamesActionsTestCase(RoutesTestCase):
 
     def test_game_add_bot_errors(self):
         # Game not found
-        bot = self.create_user(urole=User.BOT_ROLE)
         self.login()
+        bot = self.create_user(urole=User.BOT_ROLE)
         rv = self.app.post('/games/0/users/'+str(bot.id)+'/add')
         assert rv.status_code == 404
 
@@ -464,23 +464,100 @@ class GamesActionsTestCase(RoutesTestCase):
         assert rv.status_code == 400
 
     def test_game_leave(self):
-        assert True
+        # User is game owner
+        self.login()
+        game = self.create_game()
+        user = self.create_user()
+        current_user = self.get_current_user()
+        game.users.append(current_user)
+        game.users.append(user)
+        game.owner_id = current_user.id
+        db.session.add(game)
+        db.session.commit()
+        rv = self.app.put('/games/'+str(game.id)+'/leave')
+        assert rv.status_code == 200
+        game_result = json.loads(rv.data)['game']
+        assert game_result['owner_id'] == user.id
+
+        # User is not game owner
+        game.users.append(current_user)
+        db.session.add(game)
+        db.session.commit()
+        rv = self.app.put('/games/'+str(game.id)+'/leave')
+        assert rv.status_code == 200
+        game_result = json.loads(rv.data)['game']
+        assert game_result['owner_id'] == user.id
 
     def test_game_leave_errors(self):
-        assert True
         # Game not found
+        self.login()
+        rv = self.app.put('/games/0/leave')
+        assert rv.status_code == 404
+
         # User not in game
+        game = self.create_game()
+        rv = self.app.put('/games/'+str(game.id)+'/leave')
+        assert rv.status_code == 400
+
         # User only non-bot player
+        current_user = self.get_current_user()
+        bot = self.create_user(urole=User.BOT_ROLE)
+        game.users.append(current_user)
+        game.users.append(bot)
+        game.owner_id = current_user.id
+        db.session.add(game)
+        db.session.commit()
+        rv = self.app.put('/games/'+str(game.id)+'/leave')
+        assert rv.status_code == 400
 
     def test_game_start(self):
-        assert True
+        self.login()
+        game = self.create_game(status=Game.STATUS_CREATED)
+        current_user = self.get_current_user()
+        game.users.append(current_user)
+        game.owner_id = current_user.id
+        user = self.create_user()
+        game.users.append(user)
+        db.session.add(game)
+        db.session.commit()
+        add_cards()
+        rv = self.app.put('/games/'+str(game.id)+'/start')
+        assert rv.status_code == 200
+        game_result = json.loads(rv.data)['game']
+        assert game_result['status'] == Game.STATUS_STARTED
 
     def test_game_start_errors(self):
-        assert True
         # Game not found
-        # Game not CREATED
-        # Not enough users
+        self.login()
+        rv = self.app.put('/games/0/start')
+        assert rv.status_code == 404
+
         # User not game owner
+        game = self.create_game(status=Game.STATUS_CREATED)
+        user1 = self.create_user()
+        user2 = self.create_user()
+        game.users.append(user1)
+        game.users.append(user2)
+        db.session.add(game)
+        db.session.commit()
+        rv = self.app.put('/games/'+str(game.id)+'/start')
+        assert rv.status_code == 403
+
+        # Not enough users
+        game = self.create_game(status=Game.STATUS_CREATED)
+        current_user = self.get_current_user()
+        game.users.append(current_user)
+        game.owner_id = current_user.id
+        rv = self.app.put('/games/'+str(game.id)+'/start')
+        assert rv.status_code == 400
+
+        # Game not CREATED
+        game = self.create_game(status=Game.STATUS_STARTED)
+        current_user = self.get_current_user()
+        game.users.append(current_user)
+        game.owner_id = current_user.id
+        rv = self.app.put('/games/'+str(game.id)+'/start')
+        assert rv.status_code == 400
 
 if __name__ == '__main__':
     unittest.main()
