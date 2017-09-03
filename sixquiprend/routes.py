@@ -150,7 +150,7 @@ def create_game():
     db.session.commit()
     return jsonify(game=game), 201
 
-@app.route('/games', methods=['DELETE'])
+@app.route('/games/<int:game_id>', methods=['DELETE'])
 @login_required
 @admin_required
 def delete_game(game_id):
@@ -160,7 +160,7 @@ def delete_game(game_id):
         return jsonify(error='No game found'), 404
     db.session.delete(game)
     db.session.commit()
-    return jsonify(game=game), 201
+    return '', 204
 
 @app.route('/games/<int:game_id>/enter', methods=['POST'])
 @login_required

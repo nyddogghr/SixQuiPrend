@@ -31,18 +31,65 @@ class ModelsTestCase(unittest.TestCase):
         db.session.remove()
         db.drop_all()
 
+    def create_user(self, urole=User.PLAYER_ROLE):
+        username = 'User #'+str(User.query.count())
+        password = 'Password'
+        user = User(username=username,
+                password = bcrypt.hash(password),
+                active=True,
+                urole=urole)
+        db.session.add(user)
+        db.session.commit()
+        return user
+
+    def create_game(self, status=Game.STATUS_STARTED):
+        game = Game(status=status)
+        db.session.add(game)
+        db.session.commit()
+        return game
+
+    def create_hand(self, user_id, game_id):
+        hand = Hand(user_id=user_id, game_id=game_id)
+        db.session.add(hand)
+        db.session.commit()
+        return hand
+
+    def create_column(self, game_id):
+        column = Column(game_id=game_id)
+        db.session.add(column)
+        db.session.commit()
+        return column
+
+    def create_heap(self, user_id, game_id):
+        heap = Heap(user_id=user_id, game_id=game_id)
+        db.session.add(heap)
+        db.session.commit()
+        return heap
+
+    def create_chosen_card(self, card_id, user_id, game_id):
+        chosen_card = ChosenCard(card_id=card_id,
+                user_id=user_id,
+                game_id=game_id)
+        db.session.add(chosen_card)
+        db.session.commit()
+        return chosen_card
+
+    def create_card(self, number, cow_value):
+        card = Card(number=number, cow_value=cow_value)
+        db.session.add(card)
+        db.session.commit()
+        return card
+
 class UserTestCase(ModelsTestCase):
 
     def test_choose_card_for_game(self):
-        user = User(username='toto', password='toto')
-        db.session.add(user)
-        game = Game(status=Game.STATUS_STARTED)
+        user = self.create_user()
+        game = self.create_game()
         game.users.append(user)
         db.session.add(game)
         db.session.commit()
-        card = Card(number=1, cow_value=1)
-        db.session.add(card)
-        hand = Hand(game_id=game.id, user_id=user.id)
+        card = self.create_card(1, 1)
+        hand = self.create_hand(user.id, game.id)
         hand.cards.append(card)
         db.session.add(hand)
         db.session.commit()
@@ -59,23 +106,17 @@ class UserTestCase(ModelsTestCase):
         assert chosen_card != None
 
     def test_needs_to_choose_column(self):
-        user = User(username='toto', password='toto')
-        db.session.add(user)
-        game = Game(status=Game.STATUS_STARTED)
+        user = self.create_user()
+        game = self.create_game()
         game.users.append(user)
         db.session.add(game)
-        card_one = Card(number=1, cow_value=1)
-        db.session.add(card_one)
-        card_two = Card(number=2, cow_value=2)
-        db.session.add(card_two)
-        card_three = Card(number=3, cow_value=3)
-        db.session.add(card_three)
-        card_four = Card(number=4, cow_value=4)
-        db.session.add(card_four)
-        db.session.commit()
-        column_one = Column(game_id=game.id)
+        card_one = self.create_card(1, 1)
+        card_two = self.create_card(2, 2)
+        card_three = self.create_card(3, 3)
+        card_four = self.create_card(4, 4)
+        column_one = self.create_column(game.id)
         column_one.cards.append(card_two)
-        column_two = Column(game_id=game.id)
+        column_two = self.create_column(game.id)
         column_two.cards.append(card_three)
         db.session.add(column_one)
         db.session.add(column_two)
@@ -90,50 +131,37 @@ class UserTestCase(ModelsTestCase):
 class GameTestCase(ModelsTestCase):
 
     def test_get_results(self):
-       user_one = User(username='toto', password='toto')
-       user_two = User(username='titi', password='titi')
-       db.session.add(user_one)
-       db.session.add(user_two)
-       game = Game(status=Game.STATUS_STARTED)
+       user_one = self.create_user()
+       user_two = self.create_user()
+       game = self.create_game()
        game.users.append(user_one)
        game.users.append(user_two)
        db.session.add(game)
-       card_one = Card(number=1, cow_value=1)
-       db.session.add(card_one)
-       card_two = Card(number=2, cow_value=2)
-       db.session.add(card_two)
-       card_three = Card(number=3, cow_value=3)
-       db.session.add(card_three)
-       db.session.commit()
-       user_one_heap = Heap(user_id=user_one.id, game_id=game.id)
+       card_one = self.create_card(1, 1)
+       card_two = self.create_card(2, 2)
+       card_three = self.create_card(3, 3)
+       user_one_heap = self.create_heap(user_one.id, game.id)
        user_one_heap.cards.append(card_one)
-       user_two_heap = Heap(user_id=user_two.id, game_id=game.id)
+       user_two_heap = self.create_heap(user_two.id, game.id)
        user_two_heap.cards.append(card_two)
        user_two_heap.cards.append(card_three)
        results = game.get_results()
-       assert results['toto'] == 1
-       assert results['titi'] == 5
+       assert results['User #0'] == 1
+       assert results['User #1'] == 5
 
     def test_get_lowest_value_column(self):
-        game = Game(status=Game.STATUS_STARTED)
-        db.session.add(game)
-        card_one = Card(number=1, cow_value=10)
-        db.session.add(card_one)
-        card_two = Card(number=2, cow_value=2)
-        db.session.add(card_two)
-        card_three = Card(number=3, cow_value=3)
-        db.session.add(card_three)
-        card_four = Card(number=4, cow_value=4)
-        db.session.add(card_four)
-        card_five = Card(number=5, cow_value=5)
-        db.session.add(card_five)
-        db.session.commit()
-        column_one = Column(game_id=game.id)
+        game = self.create_game()
+        card_one = self.create_card(1, 10)
+        card_two = self.create_card(2, 2)
+        card_three = self.create_card(3, 3)
+        card_four = self.create_card(4, 4)
+        card_five = self.create_card(5, 5)
+        column_one = self.create_column(game.id)
         column_one.cards.append(card_one)
-        column_two = Column(game_id=game.id)
+        column_two = self.create_column(game.id)
         column_two.cards.append(card_two)
         column_two.cards.append(card_five)
-        column_two_bis = Column(game_id=game.id)
+        column_two_bis = self.create_column(game.id)
         column_two_bis.cards.append(card_three)
         column_two_bis.cards.append(card_four)
         db.session.add(column_one)
@@ -151,92 +179,70 @@ class GameTestCase(ModelsTestCase):
         assert chosen_column_ids.index(column_two_bis.id) >= 0
 
     def test_get_suitable_column_exception(self):
-        user = User(username='toto', password='toto')
-        db.session.add(user)
-        game = Game(status=Game.STATUS_STARTED)
+        user = self.create_user()
+        game = self.create_game()
         game.users.append(user)
         db.session.add(game)
-        card_one = Card(number=1, cow_value=1)
-        db.session.add(card_one)
-        card_two = Card(number=2, cow_value=2)
-        db.session.add(card_two)
-        card_three = Card(number=3, cow_value=3)
-        db.session.add(card_three)
-        card_four = Card(number=4, cow_value=4)
-        db.session.add(card_four)
-        db.session.commit()
-        column_one = Column(game_id=game.id)
+        card_one = self.create_card(1, 1)
+        card_two = self.create_card(2, 2)
+        card_three = self.create_card(3, 3)
+        card_four = self.create_card(4, 4)
+        column_one = self.create_column(game.id)
         column_one.cards.append(card_two)
-        column_two = Column(game_id=game.id)
+        column_two = self.create_column(game.id)
         column_two.cards.append(card_three)
         db.session.add(column_one)
         db.session.add(column_two)
         db.session.commit()
-        chosen_card = ChosenCard(card_id=card_one.id, user_id=user.id,
-                game_id=game.id)
-        db.session.add(chosen_card)
-        db.session.commit()
+        chosen_card = self.create_chosen_card(card_one.id,
+                user.id,
+                game.id)
         with self.assertRaises(NoSuitableColumnException) as e:
             game.get_suitable_column(chosen_card)
         assert e.exception.value == user.id
 
     def test_get_suitable_column_user(self):
-        user = User(username='toto', password='toto')
-        db.session.add(user)
-        game = Game(status=Game.STATUS_STARTED)
+        user = self.create_user()
+        game = self.create_game()
         game.users.append(user)
         db.session.add(game)
-        card_one = Card(number=1, cow_value=1)
-        db.session.add(card_one)
-        card_two = Card(number=2, cow_value=2)
-        db.session.add(card_two)
-        card_three = Card(number=3, cow_value=3)
-        db.session.add(card_three)
-        card_four = Card(number=4, cow_value=4)
-        db.session.add(card_four)
-        db.session.commit()
-        column_one = Column(game_id=game.id)
+        card_one = self.create_card(1, 1)
+        card_two = self.create_card(2, 2)
+        card_three = self.create_card(3, 3)
+        card_four = self.create_card(4, 4)
+        column_one = self.create_column(game.id)
         column_one.cards.append(card_two)
-        column_two = Column(game_id=game.id)
+        column_two = self.create_column(game.id)
         column_two.cards.append(card_three)
         db.session.add(column_one)
         db.session.add(column_two)
         db.session.commit()
-        chosen_card = ChosenCard(card_id=card_four.id, user_id=user.id,
-                game_id=game.id)
-        db.session.add(chosen_card)
-        db.session.commit()
+        chosen_card = self.create_chosen_card(card_four.id,
+                user.id,
+                game.id)
         suitable_column = game.get_suitable_column(chosen_card)
         assert suitable_column == column_two
 
     def test_get_suitable_column_bot(self):
-        bot = User(username='titi', password='titi', urole = User.BOT_ROLE)
-        db.session.add(bot)
-        game = Game(status=Game.STATUS_STARTED)
+        bot = self.create_user(User.BOT_ROLE)
+        game = self.create_game()
         game.users.append(bot)
         db.session.add(game)
-        card_one = Card(number=1, cow_value=1)
-        db.session.add(card_one)
-        card_two = Card(number=2, cow_value=2)
-        db.session.add(card_two)
-        card_three = Card(number=3, cow_value=3)
-        db.session.add(card_three)
-        card_four = Card(number=4, cow_value=4)
-        db.session.add(card_four)
-        db.session.commit()
-        bot_heap = Heap(game_id = game.id, user_id = bot.id)
-        db.session.add(bot_heap)
-        column_one = Column(game_id=game.id)
+        card_one = self.create_card(1, 1)
+        card_two = self.create_card(2, 2)
+        card_three = self.create_card(3, 3)
+        card_four = self.create_card(4, 4)
+        column_one = self.create_column(game.id)
         column_one.cards.append(card_two)
-        column_two = Column(game_id=game.id)
+        column_two = self.create_column(game.id)
         column_two.cards.append(card_three)
         db.session.add(column_one)
         db.session.add(column_two)
         db.session.commit()
-        chosen_card = ChosenCard(card_id=card_one.id, user_id=bot.id,
-                game_id=game.id)
-        db.session.add(chosen_card)
-        db.session.commit()
+        bot_heap = self.create_heap(bot.id, game.id)
+        chosen_card = self.create_chosen_card(card_one.id,
+                bot.id,
+                game.id)
         assert len(bot_heap.cards) == 0
         suitable_column = game.get_suitable_column(chosen_card)
         assert suitable_column == column_one
@@ -244,45 +250,33 @@ class GameTestCase(ModelsTestCase):
         assert bot_heap.cards[0] == card_two
 
     def test_resolve_turn_auto_bot(self):
-        user = User(username='toto', password='toto')
-        bot = User(username='titi', password='titi', urole = User.BOT_ROLE)
-        db.session.add(user)
-        db.session.add(bot)
-        game = Game(status=Game.STATUS_STARTED)
+        user = self.create_user()
+        bot = self.create_user(User.BOT_ROLE)
+        game = self.create_game()
         game.users.append(bot)
         game.users.append(user)
         db.session.add(game)
-        card_one = Card(number=1, cow_value=1)
-        db.session.add(card_one)
-        card_two = Card(number=2, cow_value=2)
-        db.session.add(card_two)
-        card_three = Card(number=3, cow_value=3)
-        db.session.add(card_three)
-        card_four = Card(number=4, cow_value=4)
-        db.session.add(card_four)
-        db.session.commit()
-        bot_heap = Heap(game_id = game.id, user_id = bot.id)
-        bot_hand = Hand(game_id = game.id, user_id = bot.id)
-        user_heap = Heap(game_id = game.id, user_id = user.id)
-        user_hand = Hand(game_id = game.id, user_id = user.id)
-        db.session.add(bot_heap)
-        db.session.add(bot_hand)
-        db.session.add(user_heap)
-        db.session.add(user_hand)
-        column_one = Column(game_id=game.id)
+        card_one = self.create_card(1, 1)
+        card_two = self.create_card(2, 2)
+        card_three = self.create_card(3, 3)
+        card_four = self.create_card(4, 4)
+        column_one = self.create_column(game.id)
         column_one.cards.append(card_two)
-        column_two = Column(game_id=game.id)
+        column_two = self.create_column(game.id)
         column_two.cards.append(card_three)
         db.session.add(column_one)
         db.session.add(column_two)
         db.session.commit()
-        bot_chosen_card = ChosenCard(card_id=card_one.id, user_id=bot.id,
-                game_id=game.id)
-        user_chosen_card = ChosenCard(card_id=card_four.id, user_id=user.id,
-                game_id=game.id)
-        db.session.add(bot_chosen_card)
-        db.session.add(user_chosen_card)
-        db.session.commit()
+        bot_heap = self.create_heap(bot.id, game.id)
+        bot_hand = self.create_hand(bot.id, game.id)
+        user_heap = self.create_heap(user.id, game.id)
+        user_hand = self.create_hand(user.id, game.id)
+        bot_chosen_card = self.create_chosen_card(card_one.id,
+                bot.id,
+                game.id)
+        user_chosen_card = self.create_chosen_card(card_four.id,
+                user.id,
+                game.id)
         assert len(bot_heap.cards) == 0
         [suitable_column, new_bot_heap] = game.resolve_turn()
         assert suitable_column == column_one
@@ -294,45 +288,33 @@ class GameTestCase(ModelsTestCase):
 
     def test_resolve_turn_user_complete_column(self):
         app.config['COLUMN_CARD_SIZE'] = 1
-        user = User(username='toto', password='toto')
-        bot = User(username='titi', password='titi', urole = User.BOT_ROLE)
-        db.session.add(user)
-        db.session.add(bot)
-        game = Game(status=Game.STATUS_STARTED)
+        user = self.create_user()
+        bot = self.create_user(User.BOT_ROLE)
+        game = self.create_game()
         game.users.append(bot)
         game.users.append(user)
         db.session.add(game)
-        card_one = Card(number=1, cow_value=1)
-        db.session.add(card_one)
-        card_two = Card(number=2, cow_value=2)
-        db.session.add(card_two)
-        card_three = Card(number=3, cow_value=3)
-        db.session.add(card_three)
-        card_four = Card(number=4, cow_value=4)
-        db.session.add(card_four)
-        db.session.commit()
-        bot_heap = Heap(game_id = game.id, user_id = bot.id)
-        bot_hand = Hand(game_id = game.id, user_id = bot.id)
-        user_heap = Heap(game_id = game.id, user_id = user.id)
-        user_hand = Hand(game_id = game.id, user_id = user.id)
-        db.session.add(bot_heap)
-        db.session.add(bot_hand)
-        db.session.add(user_heap)
-        db.session.add(user_hand)
-        column_one = Column(game_id=game.id)
+        card_one = self.create_card(1, 1)
+        card_two = self.create_card(2, 2)
+        card_three = self.create_card(3, 3)
+        card_four = self.create_card(4, 4)
+        column_one = self.create_column(game.id)
         column_one.cards.append(card_one)
-        column_two = Column(game_id=game.id)
+        column_two = self.create_column(game.id)
         column_two.cards.append(card_two)
         db.session.add(column_one)
         db.session.add(column_two)
         db.session.commit()
-        user_chosen_card = ChosenCard(card_id=card_three.id, user_id=user.id,
-                game_id=game.id)
-        bot_chosen_card = ChosenCard(card_id=card_four.id, user_id=bot.id,
-                game_id=game.id)
-        db.session.add(bot_chosen_card)
-        db.session.add(user_chosen_card)
-        db.session.commit()
+        bot_heap = self.create_heap(bot.id, game.id)
+        bot_hand = self.create_hand(bot.id, game.id)
+        user_heap = self.create_heap(user.id, game.id)
+        user_hand = self.create_hand(user.id, game.id)
+        user_chosen_card = self.create_chosen_card(card_three.id,
+                user.id,
+                game.id)
+        bot_chosen_card = self.create_chosen_card(card_four.id,
+                bot.id,
+                game.id)
         assert len(user_heap.cards) == 0
         [suitable_column, new_user_heap] = game.resolve_turn()
         assert suitable_column == column_two
@@ -344,9 +326,8 @@ class GameTestCase(ModelsTestCase):
 
     def test_setup_game(self):
         populate_db()
-        user = User(username='toto', password='toto')
-        db.session.add(user)
-        game = Game(status=Game.STATUS_STARTED)
+        user = self.create_user()
+        game = self.create_game(Game.STATUS_CREATED)
         game.users.append(user)
         bots = User.query.filter(User.urole == User.BOT_ROLE).all()
         for bot in bots:
@@ -359,44 +340,35 @@ class GameTestCase(ModelsTestCase):
         assert len(user.get_game_heap(game.id).cards) == 0
 
     def test_check_status(self):
-        user = User(username='toto', password='toto')
-        db.session.add(user)
-        game = Game(status=Game.STATUS_STARTED)
+        user = self.create_user()
+        game = self.create_game()
         game.users.append(user)
         db.session.add(game)
         db.session.commit()
-        hand = Hand(game_id=game.id, user_id=user.id)
-        db.session.add(hand)
-        db.session.commit()
+        hand = self.create_hand(user.id, game.id)
         game.check_status()
         assert game.status == Game.STATUS_FINISHED
 
 class ColumnTestCase(ModelsTestCase):
 
     def test_replace_by_card(self):
-        user = User(username='toto', password='toto')
-        db.session.add(user)
-        game = Game(status=Game.STATUS_STARTED)
+        user = self.create_user()
+        game = self.create_game()
         game.users.append(user)
         db.session.add(game)
         db.session.commit()
-        heap = Heap(user_id=user.id, game_id=game.id)
-        db.session.add(heap)
-        column = Column(game_id=game.id)
-        card_one = Card(number=1, cow_value=1)
-        db.session.add(card_one)
-        card_two = Card(number=2, cow_value=2)
-        db.session.add(card_two)
-        card_three = Card(number=3, cow_value=3)
-        db.session.add(card_three)
+        heap = self.create_heap(user.id, game.id)
+        card_one = self.create_card(1, 1)
+        card_two = self.create_card(2, 2)
+        card_three = self.create_card(3, 3)
+        column = self.create_column(game.id)
         column.cards.append(card_two)
         column.cards.append(card_three)
         db.session.add(column)
         db.session.commit()
-        chosen_card = ChosenCard(card_id=card_one.id, user_id=user.id,
-                game_id=game.id)
-        db.session.add(chosen_card)
-        db.session.commit()
+        chosen_card = self.create_chosen_card(card_one.id,
+                user.id,
+                game.id)
         assert user.get_game_heap(game.id).get_value() == 0
         column.replace_by_card(chosen_card)
         expected_value = card_two.cow_value + card_three.cow_value
