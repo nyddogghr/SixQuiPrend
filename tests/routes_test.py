@@ -66,7 +66,7 @@ class RoutesTestCase(unittest.TestCase):
         assert rv.status_code == 200
         result = json.loads(rv.data)
         if result['status'] == True:
-            return result['user']
+            return User.query.get(result['user']['id'])
 
     def create_user(self, active=True, urole=User.PLAYER_ROLE):
         username = 'User #'+str(User.query.count())
@@ -330,7 +330,7 @@ class GamesActionsTestCase(RoutesTestCase):
         assert rv.status_code == 201
         game_result = json.loads(rv.data)['game']
         assert len(game_result['users']) == 1
-        assert game_result['users'][0]['id'] == self.get_current_user()['id']
+        assert game_result['users'][0]['id'] == self.get_current_user().id
 
     def test_game_enter_errors(self):
         # Game not found
@@ -355,6 +355,7 @@ class GamesActionsTestCase(RoutesTestCase):
         game = self.create_game()
         user = self.create_user()
         game.users.append(user)
+        game.owner_id = user.id
         db.session.add(game)
         db.session.commit()
         rv = self.app.post('/games/'+str(game.id)+'/enter')
@@ -365,6 +366,7 @@ class GamesActionsTestCase(RoutesTestCase):
         bot2 = self.create_user(urole=User.BOT_ROLE)
         game = self.create_game()
         game.users.append(bot1)
+        game.owner_id = bot1.id
         db.session.add(game)
         db.session.commit()
         self.login()
@@ -375,20 +377,91 @@ class GamesActionsTestCase(RoutesTestCase):
         assert bots[0]['id'] == bot2.id
 
     def test_game_get_bots_errors(self):
-        assert True
-        # Game not found
+        self.login()
+        rv = self.app.get('/games/0/users/bots')
+        assert rv.status_code == 404
 
     def test_game_add_bot(self):
-        assert True
+        self.login()
+        bot1 = self.create_user(urole=User.BOT_ROLE)
+        bot2 = self.create_user(urole=User.BOT_ROLE)
+        game = self.create_game()
+        current_user = self.get_current_user()
+        game.users.append(current_user)
+        game.owner_id = current_user.id
+        game.users.append(bot1)
+        db.session.add(game)
+        db.session.commit()
+        rv = self.app.post('/games/'+str(game.id)+'/users/'+str(bot2.id)+'/add')
+        assert rv.status_code == 201
+        game_result = json.loads(rv.data)['game']
+        assert len(game_result['users']) == 3
 
     def test_game_add_bot_errors(self):
-        assert True
         # Game not found
-        # Game not CREATED
-        # Game complete
+        bot = self.create_user(urole=User.BOT_ROLE)
+        self.login()
+        rv = self.app.post('/games/0/users/'+str(bot.id)+'/add')
+        assert rv.status_code == 404
+
         # User not game owner
+        game = self.create_game()
+        rv = self.app.post('/games/'+str(game.id)+'/users/'+str(bot.id)+'/add')
+        assert rv.status_code == 403
+
+        # Game not CREATED
+        game = self.create_game(Game.STATUS_STARTED)
+        current_user = self.get_current_user()
+        game.users.append(current_user)
+        game.owner_id = current_user.id
+        db.session.add(game)
+        db.session.commit()
+        rv = self.app.post('/games/'+str(game.id)+'/users/'+str(bot.id)+'/add')
+        assert rv.status_code == 400
+
+        # Bot already present
+        game = self.create_game()
+        current_user = self.get_current_user()
+        game.users.append(current_user)
+        game.owner_id = current_user.id
+        game.users.append(bot)
+        db.session.add(game)
+        db.session.commit()
+        rv = self.app.post('/games/'+str(game.id)+'/users/'+str(bot.id)+'/add')
+        assert rv.status_code == 400
+
+        # Game complete
+        app.config['MAX_PLAYER_NUMBER'] = 1
+        game = self.create_game()
+        current_user = self.get_current_user()
+        game.users.append(current_user)
+        game.owner_id = current_user.id
+        db.session.add(game)
+        db.session.commit()
+        rv = self.app.post('/games/'+str(game.id)+'/users/'+str(bot.id)+'/add')
+        assert rv.status_code == 400
+
         # Bot not found
+        app.config['MAX_PLAYER_NUMBER'] = 5
+        game = self.create_game()
+        current_user = self.get_current_user()
+        game.users.append(current_user)
+        game.owner_id = current_user.id
+        db.session.add(game)
+        db.session.commit()
+        rv = self.app.post('/games/'+str(game.id)+'/users/0/add')
+        assert rv.status_code == 404
+
         # Bot added not really a bot
+        fake_bot = self.create_user()
+        game = self.create_game()
+        current_user = self.get_current_user()
+        game.users.append(current_user)
+        game.owner_id = current_user.id
+        db.session.add(game)
+        db.session.commit()
+        rv = self.app.post('/games/'+str(game.id)+'/users/'+str(fake_bot.id)+'/add')
+        assert rv.status_code == 400
 
     def test_game_leave(self):
         assert True
@@ -397,6 +470,7 @@ class GamesActionsTestCase(RoutesTestCase):
         assert True
         # Game not found
         # User not in game
+        # User only non-bot player
 
     def test_game_start(self):
         assert True

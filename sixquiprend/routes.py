@@ -146,6 +146,7 @@ def create_game():
     """Create a new game"""
     game = Game(status=Game.STATUS_CREATED)
     game.users.append(current_user)
+    game.owner_id = current_user.id
     db.session.add(game)
     db.session.commit()
     return jsonify(game=game), 201
@@ -178,6 +179,7 @@ def enter_game(game_id):
     if current_user in game.users.all():
         return jsonify(error='Cannot enter twice in a game'), 400
     game.users.append(current_user)
+    game.owner_id = current_user.id
     db.session.add(game)
     db.session.commit()
     return jsonify(game=game), 201
@@ -205,18 +207,20 @@ def add_bot_to_game(game_id, user_id):
         return jsonify(error='No game found'), 404
     if game.status != Game.STATUS_CREATED:
         return jsonify(error='Cannot enter already started game'), 400
-    if len(game.users) == app.config['MAX_PLAYER_NUMBER']:
-        error = 'Game has already ' + str(app.config['MAX_PLAYER_NUMBER'])
-        + ' players'
+    if game.users.count() == app.config['MAX_PLAYER_NUMBER']:
+        max_number = str(app.config['MAX_PLAYER_NUMBER'])
+        error = 'Game has already ' + max_number + ' players'
         return jsonify(error=error), 400
     if not current_user.is_game_owner(game):
         return jsonify(error='Only game owner can performed this'), 403
-    user = User.query.get(user_id)
-    if not user:
-        return jsonify(error='No user found'), 404
-    if user.get_urole() != User.BOT_ROLE:
+    bot = User.query.get(user_id)
+    if not bot:
+        return jsonify(error='No bot found'), 404
+    if bot.get_urole() != User.BOT_ROLE:
         return jsonify(error='Can only add a bot'), 400
-    game.users.append(user)
+    if bot in game.users:
+        return jsonify(error='Bot already present'), 400
+    game.users.append(bot)
     db.session.add(game)
     db.session.commit()
     return jsonify(game=game), 201
@@ -230,6 +234,11 @@ def leave_game(game_id):
         return jsonify(error='No game found'), 404
     if current_user not in game.users.all():
         return jsonify(error='Not in game'), 400
+    if current_user.is_game_owner(game.id):
+        try:
+            game.remove_owner(current_user.id)
+        except CannotRemoveOwnerException as e:
+            return jsonify(error=e), 400
     game.users.remove(current_user)
     db.session.add(game)
     db.session.commit()

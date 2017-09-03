@@ -86,6 +86,7 @@ class UserTestCase(ModelsTestCase):
         user = self.create_user()
         game = self.create_game()
         game.users.append(user)
+        game.owner_id = user.id
         db.session.add(game)
         db.session.commit()
         card = self.create_card(1, 1)
@@ -109,6 +110,7 @@ class UserTestCase(ModelsTestCase):
         user = self.create_user()
         game = self.create_game()
         game.users.append(user)
+        game.owner_id = user.id
         db.session.add(game)
         card_one = self.create_card(1, 1)
         card_two = self.create_card(2, 2)
@@ -131,23 +133,24 @@ class UserTestCase(ModelsTestCase):
 class GameTestCase(ModelsTestCase):
 
     def test_get_results(self):
-       user_one = self.create_user()
-       user_two = self.create_user()
-       game = self.create_game()
-       game.users.append(user_one)
-       game.users.append(user_two)
-       db.session.add(game)
-       card_one = self.create_card(1, 1)
-       card_two = self.create_card(2, 2)
-       card_three = self.create_card(3, 3)
-       user_one_heap = self.create_heap(user_one.id, game.id)
-       user_one_heap.cards.append(card_one)
-       user_two_heap = self.create_heap(user_two.id, game.id)
-       user_two_heap.cards.append(card_two)
-       user_two_heap.cards.append(card_three)
-       results = game.get_results()
-       assert results['User #0'] == 1
-       assert results['User #1'] == 5
+        user_one = self.create_user()
+        user_two = self.create_user()
+        game = self.create_game()
+        game.users.append(user_one)
+        game.owner_id = user_one.id
+        game.users.append(user_two)
+        db.session.add(game)
+        card_one = self.create_card(1, 1)
+        card_two = self.create_card(2, 2)
+        card_three = self.create_card(3, 3)
+        user_one_heap = self.create_heap(user_one.id, game.id)
+        user_one_heap.cards.append(card_one)
+        user_two_heap = self.create_heap(user_two.id, game.id)
+        user_two_heap.cards.append(card_two)
+        user_two_heap.cards.append(card_three)
+        results = game.get_results()
+        assert results['User #0'] == 1
+        assert results['User #1'] == 5
 
     def test_get_lowest_value_column(self):
         game = self.create_game()
@@ -182,6 +185,7 @@ class GameTestCase(ModelsTestCase):
         user = self.create_user()
         game = self.create_game()
         game.users.append(user)
+        game.owner_id = user.id
         db.session.add(game)
         card_one = self.create_card(1, 1)
         card_two = self.create_card(2, 2)
@@ -205,6 +209,7 @@ class GameTestCase(ModelsTestCase):
         user = self.create_user()
         game = self.create_game()
         game.users.append(user)
+        game.owner_id = user.id
         db.session.add(game)
         card_one = self.create_card(1, 1)
         card_two = self.create_card(2, 2)
@@ -227,6 +232,7 @@ class GameTestCase(ModelsTestCase):
         bot = self.create_user(User.BOT_ROLE)
         game = self.create_game()
         game.users.append(bot)
+        game.owner_id = bot.id
         db.session.add(game)
         card_one = self.create_card(1, 1)
         card_two = self.create_card(2, 2)
@@ -254,6 +260,7 @@ class GameTestCase(ModelsTestCase):
         bot = self.create_user(User.BOT_ROLE)
         game = self.create_game()
         game.users.append(bot)
+        game.owner_id = bot.id
         game.users.append(user)
         db.session.add(game)
         card_one = self.create_card(1, 1)
@@ -292,6 +299,7 @@ class GameTestCase(ModelsTestCase):
         bot = self.create_user(User.BOT_ROLE)
         game = self.create_game()
         game.users.append(bot)
+        game.owner_id = bot.id
         game.users.append(user)
         db.session.add(game)
         card_one = self.create_card(1, 1)
@@ -329,6 +337,7 @@ class GameTestCase(ModelsTestCase):
         user = self.create_user()
         game = self.create_game(Game.STATUS_CREATED)
         game.users.append(user)
+        game.owner_id = user.id
         bots = User.query.filter(User.urole == User.BOT_ROLE).all()
         for bot in bots:
             game.users.append(bot)
@@ -343,11 +352,38 @@ class GameTestCase(ModelsTestCase):
         user = self.create_user()
         game = self.create_game()
         game.users.append(user)
+        game.owner_id = user.id
         db.session.add(game)
         db.session.commit()
         hand = self.create_hand(user.id, game.id)
         game.check_status()
         assert game.status == Game.STATUS_FINISHED
+
+    def test_remove_owner(self):
+        user1 = self.create_user()
+        user2 = self.create_user()
+        bot = self.create_user(urole=User.BOT_ROLE)
+        game = self.create_game()
+        game.users.append(user1)
+        game.owner_id = user1.id
+        game.owner_id = user1.id
+        db.session.add(game)
+        db.session.commit()
+        with self.assertRaises(UserNotOwnerException) as e:
+            game.remove_owner(user2.id)
+        with self.assertRaises(CannotRemoveOwnerException) as e:
+            game.remove_owner(user1.id)
+        game.users.append(bot)
+        db.session.add(game)
+        db.session.commit()
+        with self.assertRaises(CannotRemoveOwnerException) as e:
+            game.remove_owner(user1.id)
+        game.users.append(user2)
+        db.session.add(game)
+        db.session.commit()
+        game.remove_owner(user1.id)
+        db.session.refresh(game)
+        assert game.owner_id == user2.id
 
 class ColumnTestCase(ModelsTestCase):
 
@@ -355,6 +391,7 @@ class ColumnTestCase(ModelsTestCase):
         user = self.create_user()
         game = self.create_game()
         game.users.append(user)
+        game.owner_id = user.id
         db.session.add(game)
         db.session.commit()
         heap = self.create_heap(user.id, game.id)

@@ -7,6 +7,12 @@ class NoSuitableColumnException(Exception):
     def __init__(self, value):
         self.value = value
 
+class UserNotOwnerException(Exception):
+    pass
+
+class CannotRemoveOwnerException(Exception):
+    pass
+
 user_games = db.Table('user_games',
         db.Column('user_id', db.Integer, db.ForeignKey('user.id')),
         db.Column('game_id', db.Integer, db.ForeignKey('game.id'))
@@ -51,7 +57,7 @@ class User(db.Model):
         return bcrypt.verify(password, self.password)
 
     def is_game_owner(self, game):
-        return game.users.first() == self
+        return game.owner_id == self.id
 
     def get_game_heap(self, game_id):
         return Heap.query.filter(Heap.user_id == self.id, Heap.game_id == game_id).first()
@@ -91,7 +97,7 @@ class User(db.Model):
         game = Game.query.filter(game_id == game_id).first()
         try:
             game.get_suitable_column(cc)
-        except NoSuitableColumnException as e:
+        except NoSuitableColumnException:
             return True
         return False
 
@@ -126,6 +132,7 @@ class Game(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     status = db.Column(db.Integer, nullable=False, default=STATUS_CREATED)
+    owner_id = db.Column(db.Integer, db.ForeignKey('user.id'))
 
     def get_results(self):
         results = {}
@@ -211,6 +218,18 @@ class Game(db.Model):
     def check_status(self):
         if len(self.users.first().get_game_hand(self.id).cards) == 0:
             self.status = Game.STATUS_FINISHED
+            db.session.add(self)
+            db.session.commit()
+
+    def remove_owner(self, user_id):
+        if self.owner_id != user_id:
+            raise UserNotOwnerException('User is not game owner')
+        new_owner = self.users.filter(User.id != user_id,
+                User.urole != User.BOT_ROLE).first()
+        if not new_owner:
+            raise CannotRemoveOwnerException('There is no other non-bot player')
+        else:
+            self.owner_id = new_owner.id
             db.session.add(self)
             db.session.commit()
 
