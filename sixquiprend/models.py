@@ -12,6 +12,9 @@ class UserNotOwnerException(Exception):
 class CannotRemoveOwnerException(Exception):
     pass
 
+class CardNotOwnedException(Exception):
+    pass
+
 user_games = db.Table('user_games',
         db.Column('user_id', db.Integer, db.ForeignKey('user.id')),
         db.Column('game_id', db.Integer, db.ForeignKey('game.id'))
@@ -59,30 +62,34 @@ class User(db.Model):
         return game.owner_id == self.id
 
     def get_game_heap(self, game_id):
-        return Heap.query.filter(Heap.user_id == self.id, Heap.game_id == game_id).first()
+        return Heap.query.filter(Heap.game_id == game_id, Heap.user_id == self.id).first()
 
     def get_game_hand(self, game_id):
-        return Hand.query.filter(Hand.user_id == self.id, Hand.game_id == game_id).first()
+        return Hand.query.filter(Hand.game_id == game_id, Hand.user_id == self.id).first()
 
     def has_chosen_card(self, game_id):
-        return ChosenCard.query.filter(user_id == self.id,
-                game_id == game_id).count() == 1
+        return ChosenCard.query.filter(game_id == game_id,
+                ChosenCard.user_id == self.id).count() == 1
 
     def get_chosen_card(self, game_id):
-        return ChosenCard.query.filter(user_id == self.id,
-                game_id == game_id).first()
+        return ChosenCard.query.filter(game_id == game_id,
+                ChosenCard.user_id == self.id).first()
 
-    def choose_card_for_game(self, game_id, card_id):
+    def choose_card_for_game(self, game_id, card_id=None):
         hand = self.get_game_hand(game_id)
         if card_id == None:
             index = random.randrange(len(hand.cards))
             card = hand.cards.pop(index)
         else:
-            card = [card for card in hand.cards if card.id == card_id][0]
-        hand.cards.remove(card)
+            filtered_cards = [card for card in hand.cards if card.id == card_id]
+            if len(filtered_cards) == 0:
+                raise CardNotOwnedException
+            else:
+                card = filtered_cards[0]
+                hand.cards.remove(card)
         db.session.add(hand)
         chosen_card = ChosenCard(game_id=game_id, user_id=self.id,
-            card_id=card_id)
+            card_id=card.id)
         db.session.add(chosen_card)
         db.session.commit()
         return chosen_card
@@ -141,10 +148,13 @@ class Game(db.Model):
         return results
 
     def get_user(self, user_id):
-        return self.users.query.get(user_id)
+        return self.users.filter(User.id==user_id).first()
 
     def get_columns(self):
-        return Column.query.filter(Column.game_id == self.id).all()
+        return Column.query.filter(Column.game_id == self.id)
+
+    def get_chosen_cards(self):
+        return ChosenCard.query.filter(ChosenCard.game_id == self.id)
 
     def get_lowest_value_column(self):
         column_value = 9000
@@ -196,14 +206,14 @@ class Game(db.Model):
         self.status = Game.STATUS_STARTED
         card_set = list(range(1, app.config['MAX_CARD_NUMBER'] + 1))
         for user in self.users.all():
-            user_hand = Hand(user_id=user.id, game_id=self.id)
+            user_hand = Hand(game_id=self.id, user_id=user.id)
             for i in range(app.config['HAND_SIZE']):
                 index = random.randrange(len(card_set))
                 card_number = card_set.pop(index)
                 card = Card.query.filter(Card.number == card_number).first()
                 user_hand.cards.append(card)
                 db.session.add(user_hand)
-            user_heap = Heap(user_id=user.id, game_id=self.id)
+            user_heap = Heap(game_id=self.id, user_id=user.id)
             db.session.add(user_heap)
         for i in range(app.config['BOARD_SIZE']):
             column = Column(game_id=self.id)
@@ -212,6 +222,7 @@ class Game(db.Model):
             card = Card.query.filter(Card.number == card_number).first()
             column.cards.append(card)
             db.session.add(column)
+        db.session.add(self)
         db.session.commit()
 
     def check_status(self):
@@ -258,6 +269,7 @@ class Column(db.Model):
         self.cards = [chosen_card.get_card()]
         db.session.add(self)
         db.session.commit()
+        return user_game_heap
 
     def get_value(self):
         return sum(card.cow_value for card in self.cards)
@@ -266,7 +278,7 @@ class Column(db.Model):
         return {
                 'id': self.id,
                 'game_id': self.game_id,
-                'cards': self.cards.all()
+                'cards': self.cards
                 }
 
 hand_cards = db.Table('hand_cards',
@@ -286,7 +298,7 @@ class Hand(db.Model):
                 'id': self.id,
                 'user_id': self.user_id,
                 'game_id': self.game_id,
-                'cards': self.cards.all()
+                'cards': self.cards
                 }
 
 heap_cards = db.Table('heap_cards',
@@ -309,7 +321,7 @@ class Heap(db.Model):
                 'id': self.id,
                 'user_id': self.user_id,
                 'game_id': self.game_id,
-                'cards': self.cards.all()
+                'cards': self.cards
                 }
 
 class ChosenCard(db.Model):
