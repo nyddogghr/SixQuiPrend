@@ -1,1 +1,1 @@
-web: FLASK_APP=sixquiprend gunicorn sixquiprend:app
+web: gunicorn sixquiprend:app
