@@ -152,8 +152,7 @@ class LoginLogoutTestCase(RoutesTestCase):
         assert rv.status_code == 200
         assert json.loads(rv.data) == {'status':False}
 
-    def test_login_errors(self):
-        # Bot login
+    def test_login_errors_bot_login(self):
         bot_username = 'bot'
         bot_password = 'bot'
         bot = User(username=bot_username,
@@ -170,14 +169,14 @@ class LoginLogoutTestCase(RoutesTestCase):
         assert rv.status_code == 200
         assert json.loads(rv.data) == {'status':False}
 
-        # User not present
+    def test_login_errors_user_not_present(self):
         rv = self.app.post('/login', data=json.dumps(dict(
             username='nope',
             password='nope',
         )), content_type='application/json')
         assert rv.status_code == 404
 
-        # User inactive
+    def test_login_errors_user_inactive(self):
         user = self.create_user(False)
         rv = self.app.post('/login', data=json.dumps(dict(
             username=user.username,
@@ -185,7 +184,7 @@ class LoginLogoutTestCase(RoutesTestCase):
         )), content_type='application/json')
         assert rv.status_code == 403
 
-        # Bad password
+    def test_login_errors_bad_password(self):
         user = self.create_user()
         rv = self.app.post('/login', data=json.dumps(dict(
             username=user.username,
@@ -207,8 +206,7 @@ class UsersTestCase(RoutesTestCase):
                 password == password).first()
         assert new_user != None
 
-    def test_register_errors(self):
-        # User already present
+    def test_register_errors_user_already_present(self):
         username = User.query.first().username
         password = 'Password'
         rv = self.app.post('/users/register', data=json.dumps(dict(
@@ -217,10 +215,10 @@ class UsersTestCase(RoutesTestCase):
         )), content_type='application/json')
         assert rv.status_code == 400
 
-        # Registering deactivated
+    def test_register_errors_registering_deactivated(self):
         allow_register_users = app.config['ALLOW_REGISTER_USERS']
         app.config['ALLOW_REGISTER_USERS'] = False
-        username = User.query.first().username
+        username = 'toto'
         password = 'Password'
         rv = self.app.post('/users/register', data=json.dumps(dict(
             username=username,
@@ -260,14 +258,13 @@ class UsersTestCase(RoutesTestCase):
         db.session.refresh(user)
         assert user.active == True
 
-    def test_activate_users_errors(self):
-        # Current user not admin
+    def test_activate_users_errors_not_admin(self):
         user = self.create_user(False)
         self.login()
         rv = self.app.put('/users/'+str(user.id)+'/activate')
         assert rv.status_code == 401
 
-        # User not found
+    def test_activate_users_errors_user_not_found(self):
         self.login_admin()
         rv = self.app.put('/users/0/activate')
         assert rv.status_code == 404
@@ -282,14 +279,13 @@ class UsersTestCase(RoutesTestCase):
         db.session.refresh(user)
         assert user.active == False
 
-    def test_deactivate_users_errors(self):
-        # Current user not admin
+    def test_deactivate_users_errors_not_admin(self):
         user = self.create_user()
         self.login()
         rv = self.app.put('/users/'+str(user.id)+'/deactivate')
         assert rv.status_code == 401
 
-        # User not found
+    def test_deactivate_users_errors_user_not_found(self):
         self.login_admin()
         rv = self.app.put('/users/0/deactivate')
         assert rv.status_code == 404
@@ -303,14 +299,13 @@ class UsersTestCase(RoutesTestCase):
         assert rv.status_code == 200
         assert User.query.get(user.id) == None
 
-    def test_delete_users_errors(self):
-        # Current user not admin
+    def test_delete_users_errors_not_admin(self):
         user = self.create_user()
         self.login()
         rv = self.app.delete('/users/'+str(user.id))
         assert rv.status_code == 401
 
-        # User not found
+    def test_delete_users_errors_user_not_found(self):
         self.login_admin()
         rv = self.app.delete('/users/0')
         assert rv.status_code == 404
@@ -347,8 +342,7 @@ class GamesTestCase(RoutesTestCase):
         game_response = json.loads(rv.data)['game']
         assert game_response['id'] == game.id
 
-    def test_get_game_errors(self):
-        # Game not found
+    def test_get_game_errors_game_not_found(self):
         self.login()
         rv = self.app.get('/games/0')
         assert rv.status_code == 404
@@ -369,14 +363,13 @@ class GamesTestCase(RoutesTestCase):
         game_db = Game.query.get(game.id)
         assert game_db == None
 
-    def test_delete_game_errors(self):
-        # User not admin
+    def test_delete_game_errors_not_admin(self):
         game = self.create_game()
         self.login()
         rv = self.app.delete('/games/'+str(game.id))
         assert rv.status_code == 401
 
-        # Game not found
+    def test_delete_game_errors_game_not_found(self):
         self.login_admin()
         rv = self.app.delete('/games/0')
         assert rv.status_code == 404
@@ -392,25 +385,27 @@ class GamesActionsTestCase(RoutesTestCase):
         assert len(game_result['users']) == 1
         assert game_result['users'][0]['id'] == self.get_current_user().id
 
-    def test_game_enter_errors(self):
-        # Game not found
+    def test_game_enter_errors_game_not_found(self):
         self.login()
         rv = self.app.post('/games/0/enter')
         assert rv.status_code == 404
 
-        # Game not CREATED
+    def test_game_enter_errors_game_not_created(self):
+        self.login()
         game = self.create_game(Game.STATUS_STARTED)
         rv = self.app.post('/games/'+str(game.id)+'/enter')
         assert rv.status_code == 400
 
-        # User already in
+    def test_game_enter_errors_already_in(self):
+        self.login()
         game = self.create_game()
         rv = self.app.post('/games/'+str(game.id)+'/enter')
         assert rv.status_code == 201
         rv = self.app.post('/games/'+str(game.id)+'/enter')
         assert rv.status_code == 400
 
-        # Game complete
+    def test_game_enter_errors_game_full(self):
+        self.login()
         max_player_number = app.config['MAX_PLAYER_NUMBER']
         app.config['MAX_PLAYER_NUMBER'] = 1
         game = self.create_game()
@@ -438,7 +433,7 @@ class GamesActionsTestCase(RoutesTestCase):
         assert len(bots) == 1
         assert bots[0]['id'] == bot2.id
 
-    def test_game_get_bots_errors(self):
+    def test_game_get_bots_errors_game_not_found(self):
         self.login()
         rv = self.app.get('/games/0/users/bots')
         assert rv.status_code == 404
@@ -459,20 +454,23 @@ class GamesActionsTestCase(RoutesTestCase):
         game_result = json.loads(rv.data)['game']
         assert len(game_result['users']) == 3
 
-    def test_game_add_bot_errors(self):
-        # Game not found
+    def test_game_add_bot_errors_game_not_found(self):
         self.login()
         bot = self.create_user(urole=User.BOT_ROLE)
         rv = self.app.post('/games/0/users/'+str(bot.id)+'/add')
         assert rv.status_code == 404
 
-        # User not game owner
+    def test_game_add_bot_errors_not_game_owner(self):
+        self.login()
         game = self.create_game()
+        bot = self.create_user(urole=User.BOT_ROLE)
         rv = self.app.post('/games/'+str(game.id)+'/users/'+str(bot.id)+'/add')
         assert rv.status_code == 403
 
-        # Game not CREATED
+    def test_game_add_bot_errors_game_not_created(self):
+        self.login()
         game = self.create_game(Game.STATUS_STARTED)
+        bot = self.create_user(urole=User.BOT_ROLE)
         current_user = self.get_current_user()
         game.users.append(current_user)
         game.owner_id = current_user.id
@@ -481,8 +479,10 @@ class GamesActionsTestCase(RoutesTestCase):
         rv = self.app.post('/games/'+str(game.id)+'/users/'+str(bot.id)+'/add')
         assert rv.status_code == 400
 
-        # Bot already present
+    def test_game_add_bot_errors_bot_already_present(self):
+        self.login()
         game = self.create_game()
+        bot = self.create_user(urole=User.BOT_ROLE)
         current_user = self.get_current_user()
         game.users.append(current_user)
         game.owner_id = current_user.id
@@ -492,10 +492,12 @@ class GamesActionsTestCase(RoutesTestCase):
         rv = self.app.post('/games/'+str(game.id)+'/users/'+str(bot.id)+'/add')
         assert rv.status_code == 400
 
-        # Game complete
+    def test_game_add_bot_errors_game_complete(self):
+        self.login()
         max_player_number = app.config['MAX_PLAYER_NUMBER']
         app.config['MAX_PLAYER_NUMBER'] = 1
         game = self.create_game()
+        bot = self.create_user(urole=User.BOT_ROLE)
         current_user = self.get_current_user()
         game.users.append(current_user)
         game.owner_id = current_user.id
@@ -505,7 +507,8 @@ class GamesActionsTestCase(RoutesTestCase):
         assert rv.status_code == 400
         app.config['MAX_PLAYER_NUMBER'] = max_player_number
 
-        # Bot not found
+    def test_game_add_bot_errors_bot_not_found(self):
+        self.login()
         game = self.create_game()
         current_user = self.get_current_user()
         game.users.append(current_user)
@@ -515,7 +518,8 @@ class GamesActionsTestCase(RoutesTestCase):
         rv = self.app.post('/games/'+str(game.id)+'/users/0/add')
         assert rv.status_code == 404
 
-        # Bot added not really a bot
+    def test_game_add_bot_errors_bot_not_a_bot(self):
+        self.login()
         fake_bot = self.create_user()
         game = self.create_game()
         current_user = self.get_current_user()
@@ -551,18 +555,20 @@ class GamesActionsTestCase(RoutesTestCase):
         game_result = json.loads(rv.data)['game']
         assert game_result['owner_id'] == user.id
 
-    def test_game_leave_errors(self):
-        # Game not found
+    def test_game_leave_errors_game_not_found(self):
         self.login()
         rv = self.app.put('/games/0/leave')
         assert rv.status_code == 404
 
-        # User not in game
+    def test_game_leave_errors_not_in_game(self):
+        self.login()
         game = self.create_game()
         rv = self.app.put('/games/'+str(game.id)+'/leave')
         assert rv.status_code == 400
 
-        # User only non-bot player
+    def test_game_leave_errors_last_player(self):
+        self.login()
+        game = self.create_game()
         current_user = self.get_current_user()
         bot = self.create_user(urole=User.BOT_ROLE)
         game.users.append(current_user)
@@ -589,13 +595,13 @@ class GamesActionsTestCase(RoutesTestCase):
         game_result = json.loads(rv.data)['game']
         assert game_result['status'] == Game.STATUS_STARTED
 
-    def test_game_start_errors(self):
-        # Game not found
+    def test_game_start_errors_game_not_found(self):
         self.login()
         rv = self.app.put('/games/0/start')
         assert rv.status_code == 404
 
-        # User not game owner
+    def test_game_start_errors_not_game_owner(self):
+        self.login()
         game = self.create_game(status=Game.STATUS_CREATED)
         user1 = self.create_user()
         user2 = self.create_user()
@@ -606,7 +612,8 @@ class GamesActionsTestCase(RoutesTestCase):
         rv = self.app.put('/games/'+str(game.id)+'/start')
         assert rv.status_code == 403
 
-        # Not enough users
+    def test_game_start_errors_not_enough_users(self):
+        self.login()
         game = self.create_game(status=Game.STATUS_CREATED)
         current_user = self.get_current_user()
         game.users.append(current_user)
@@ -614,7 +621,8 @@ class GamesActionsTestCase(RoutesTestCase):
         rv = self.app.put('/games/'+str(game.id)+'/start')
         assert rv.status_code == 400
 
-        # Game not CREATED
+    def test_game_start_errors_game_not_created(self):
+        self.login()
         game = self.create_game(status=Game.STATUS_STARTED)
         current_user = self.get_current_user()
         game.users.append(current_user)
@@ -636,13 +644,13 @@ class GamesTurnsTestCase(RoutesTestCase):
         assert len(response_columns[0]['cards']) == 1
         assert response_columns[0]['cards'][0] == card.serialize()
 
-    def test_get_columns_errors(self):
-        # Game not found
+    def test_get_columns_errors_game_not_found(self):
         self.login()
         rv = self.app.get('/games/0/columns')
         assert rv.status_code == 404
 
-        # Game not started
+    def test_get_columns_errors_game_not_started(self):
+        self.login()
         game = self.create_game(status=Game.STATUS_CREATED)
         rv = self.app.get('/games/'+str(game.id)+'/columns')
         assert rv.status_code == 400
@@ -660,8 +668,7 @@ class GamesTurnsTestCase(RoutesTestCase):
         assert len(response_users) == 1
         assert response_users[0]['id'] == user.id
 
-    def test_get_users_errors(self):
-        # Game not found
+    def test_get_users_errors_game_not_found(self):
         self.login()
         rv = self.app.get('/games/0/users')
         assert rv.status_code == 404
@@ -686,14 +693,15 @@ class GamesTurnsTestCase(RoutesTestCase):
         response_status = json.loads(rv.data)['user']
         assert response_status['has_chosen_card'] == True
 
-    def test_get_user_status_errors(self):
-        # Game not found
+    def test_get_user_status_errors_game_not_found(self):
         self.login()
         user = self.create_user()
         rv = self.app.get('/games/0/users/'+str(user.id)+'/status')
         assert rv.status_code == 404
 
-        # Game not started
+    def test_get_user_status_errors_game_not_started(self):
+        self.login()
+        user = self.create_user()
         game = self.create_game(status=Game.STATUS_CREATED)
         game.users.append(user)
         db.session.add(game)
@@ -701,7 +709,8 @@ class GamesTurnsTestCase(RoutesTestCase):
         rv = self.app.get('/games/'+str(game.id)+'/users/'+str(user.id)+'/status')
         assert rv.status_code == 400
 
-        # User not in game
+    def test_get_user_status_errors_user_not_in_game(self):
+        self.login()
         game = self.create_game(status=Game.STATUS_STARTED)
         rv = self.app.get('/games/'+str(game.id)+'/users/0/status')
         assert rv.status_code == 404
@@ -721,14 +730,15 @@ class GamesTurnsTestCase(RoutesTestCase):
         assert len(response_heap['cards']) == 1
         assert response_heap['cards'][0]['id'] == card.id
 
-    def test_get_user_heap_errors(self):
-        # Game not found
+    def test_get_user_heap_errors_game_not_found(self):
         self.login()
         user = self.create_user()
         rv = self.app.get('/games/0/users/'+str(user.id)+'/heap')
         assert rv.status_code == 404
 
-        # Game not started
+    def test_get_user_heap_errors_game_not_started(self):
+        self.login()
+        user = self.create_user()
         game = self.create_game(status=Game.STATUS_CREATED)
         game.users.append(user)
         db.session.add(game)
@@ -736,7 +746,9 @@ class GamesTurnsTestCase(RoutesTestCase):
         rv = self.app.get('/games/'+str(game.id)+'/users/'+str(user.id)+'/heap')
         assert rv.status_code == 400
 
-        # User not in game
+    def test_get_user_heap_errors_user_not_in_game(self):
+        self.login()
+        user = self.create_user()
         game = self.create_game(status=Game.STATUS_STARTED)
         rv = self.app.get('/games/'+str(game.id)+'/users/'+str(user.id)+'/heap')
         assert rv.status_code == 404
@@ -756,13 +768,13 @@ class GamesTurnsTestCase(RoutesTestCase):
         assert len(response_hand['cards']) == 1
         assert response_hand['cards'][0]['id'] == card.id
 
-    def test_get_current_user_hand_errors(self):
-        # Game not found
+    def test_get_current_user_hand_errors_game_not_found(self):
         self.login()
         rv = self.app.get('/games/0/users/current/hand')
         assert rv.status_code == 404
 
-        # Game not started
+    def test_get_current_user_hand_errors_game_not_started(self):
+        self.login()
         user = self.get_current_user()
         game = self.create_game(status=Game.STATUS_CREATED)
         game.users.append(user)
@@ -771,7 +783,8 @@ class GamesTurnsTestCase(RoutesTestCase):
         rv = self.app.get('/games/'+str(game.id)+'/users/current/hand')
         assert rv.status_code == 400
 
-        # User not in game
+    def test_get_current_user_hand_errors_user_not_in_game(self):
+        self.login()
         game = self.create_game(status=Game.STATUS_STARTED)
         rv = self.app.get('/games/'+str(game.id)+'/users/current/hand')
         assert rv.status_code == 404
@@ -792,8 +805,7 @@ class GamesTurnsTestCase(RoutesTestCase):
         assert response_chosen_card['user_id'] == user.id
         assert response_chosen_card['card_id'] == card.id
 
-    def test_choose_card_errors(self):
-        # Game not found
+    def test_choose_card_errors_game_not_found(self):
         self.login()
         user = self.get_current_user()
         game = self.create_game(status=Game.STATUS_STARTED)
@@ -802,28 +814,43 @@ class GamesTurnsTestCase(RoutesTestCase):
         rv = self.app.post('/games/0/card/'+str(card.id))
         assert rv.status_code == 404
 
-        # Game not started
+    def test_choose_card_errors_game_not_started(self):
+        self.login()
+        user = self.get_current_user()
         game = self.create_game(status=Game.STATUS_CREATED)
         game.users.append(user)
+        card = self.create_card()
         rv = self.app.post('/games/'+str(game.id)+'/card/'+str(card.id))
         assert rv.status_code == 400
 
-        # User not in game
+    def test_choose_card_errors_user_not_in_game(self):
+        self.login()
         game = self.create_game(status=Game.STATUS_STARTED)
+        card = self.create_card()
         rv = self.app.post('/games/'+str(game.id)+'/card/'+str(card.id))
         assert rv.status_code == 400
 
-        # Card already chosen
+    def test_choose_card_errors_card_already_chosen(self):
+        self.login()
+        user = self.get_current_user()
+        game = self.create_game(status=Game.STATUS_STARTED)
         game.users.append(user)
         db.session.add(game)
         db.session.commit()
+        card = self.create_card()
         chosen_card = self.create_chosen_card(game.id, user.id, card.id)
         rv = self.app.post('/games/'+str(game.id)+'/card/'+str(card.id))
         assert rv.status_code == 400
 
-        # Card not owned
-        db.session.delete(chosen_card)
+    def test_choose_card_errors_card_not_owned(self):
+        self.login()
+        user = self.get_current_user()
+        game = self.create_game(status=Game.STATUS_STARTED)
+        game.users.append(user)
+        db.session.add(game)
+        db.session.commit()
         hand = self.create_hand(game_id=game.id, user_id=user.id)
+        card = self.create_card()
         rv = self.app.post('/games/'+str(game.id)+'/card/'+str(card.id))
         assert rv.status_code == 400
 
@@ -853,19 +880,18 @@ class GamesTurnsTestCase(RoutesTestCase):
         assert response_chosen_cards[1]['user_id'] == user2.id
         assert response_chosen_cards[1]['card_id'] == card2.id
 
-    def test_get_chosen_cards_errors(self):
-        # Game not found
+    def test_get_chosen_cards_errors_game_not_found(self):
         self.login()
         rv = self.app.get('/games/0/chosen_cards')
         assert rv.status_code == 404
 
-        # Game not started
+    def test_get_chosen_cards_errors_game_not_started(self):
         self.login()
         game = self.create_game(status=Game.STATUS_CREATED)
         rv = self.app.get('/games/'+str(game.id)+'/chosen_cards')
         assert rv.status_code == 400
 
-        # Some users have not chosen a card yet
+    def test_get_chosen_cards_errors_some_users_havent_chosen(self):
         self.login()
         user = self.get_current_user()
         game = self.create_game(status=Game.STATUS_STARTED)
@@ -902,18 +928,19 @@ class GamesTurnsTestCase(RoutesTestCase):
         assert response['user_heap']['user_id'] == user.id
         assert len(response['user_heap']['cards']) == 0
 
-    def test_resolve_turn_errors(self):
-        # Game not found
+    def test_resolve_turn_errors_game_not_found(self):
         self.login()
         rv = self.app.post('/games/0/turns/resolve')
         assert rv.status_code == 404
 
-        # Game not started
+    def test_resolve_turn_errors_game_not_started(self):
+        self.login()
         game = self.create_game(status=Game.STATUS_CREATED)
         rv = self.app.post('/games/'+str(game.id)+'/turns/resolve')
         assert rv.status_code == 400
 
-        # User not game owner
+    def test_resolve_turn_errors_not_game_owner(self):
+        self.login()
         game = self.create_game(status=Game.STATUS_STARTED)
         user = self.get_current_user()
         game.users.append(user)
@@ -922,7 +949,9 @@ class GamesTurnsTestCase(RoutesTestCase):
         rv = self.app.post('/games/'+str(game.id)+'/turns/resolve')
         assert rv.status_code == 403
 
-        # No card to place
+    def test_resolve_turn_errors_no_card_to_place(self):
+        self.login()
+        user = self.get_current_user()
         user2 = self.create_user()
         game = self.create_game(status=Game.STATUS_STARTED)
         game.users.append(user)
@@ -933,7 +962,16 @@ class GamesTurnsTestCase(RoutesTestCase):
         rv = self.app.post('/games/'+str(game.id)+'/turns/resolve')
         assert rv.status_code == 400
 
-        # User must choose a column
+    def test_resolve_turn_errors_user_must_choose_column(self):
+        self.login()
+        user = self.get_current_user()
+        user2 = self.create_user()
+        game = self.create_game(status=Game.STATUS_STARTED)
+        game.users.append(user)
+        game.users.append(user2)
+        game.owner_id = user.id
+        db.session.add(game)
+        db.session.commit()
         card = self.create_card(1, 1)
         card2 = self.create_card(2, 2)
         card3 = self.create_card(3, 3)
@@ -964,25 +1002,30 @@ class GamesTurnsTestCase(RoutesTestCase):
         assert len(response['user_heap']['cards']) == 1
         assert response['user_heap']['cards'][0]['id'] == card2.id
 
-    def test_choose_column_for_card_errors(self):
-        # Game not found
+    def test_choose_column_for_card_errors_game_not_found(self):
         self.login()
         game = self.create_game(status=Game.STATUS_CREATED)
         column = self.create_column(game.id)
         rv = self.app.post('/games/0/columns/'+str(column.id)+'/choose')
         assert rv.status_code == 404
 
-        # Game not started
+    def test_choose_column_for_card_errors_game_not_started(self):
+        self.login()
+        game = self.create_game(status=Game.STATUS_CREATED)
+        column = self.create_column(game.id)
         rv = self.app.post('/games/'+str(game.id)+'/columns/'+str(column.id)+'/choose')
         assert rv.status_code == 400
 
-        # User not in game
+    def test_choose_column_for_card_errors_not_in_game(self):
+        self.login()
         game = self.create_game(status=Game.STATUS_STARTED)
         column = self.create_column(game.id)
         rv = self.app.post('/games/'+str(game.id)+'/columns/'+str(column.id)+'/choose')
         assert rv.status_code == 400
 
-        # Column not found
+    def test_choose_column_for_card_errors_column_not_found(self):
+        self.login()
+        game = self.create_game(status=Game.STATUS_STARTED)
         user = self.get_current_user()
         game.users.append(user)
         db.session.add(game)
@@ -990,7 +1033,14 @@ class GamesTurnsTestCase(RoutesTestCase):
         rv = self.app.post('/games/'+str(game.id)+'/columns/0/choose')
         assert rv.status_code == 404
 
-        # No card to place
+    def test_choose_column_for_card_errors_no_card_to_place(self):
+        self.login()
+        game = self.create_game(status=Game.STATUS_STARTED)
+        column = self.create_column(game.id)
+        user = self.get_current_user()
+        game.users.append(user)
+        db.session.add(game)
+        db.session.commit()
         rv = self.app.post('/games/'+str(game.id)+'/columns/'+str(column.id)+'/choose')
         assert rv.status_code == 400
 
