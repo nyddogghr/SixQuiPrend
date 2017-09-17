@@ -6,12 +6,10 @@ from sixquiprend.models import User, Card
 
 def create_db():
     try:
-        con = psycopg2.connect(dbname=app.config['DATABASE_NAME'],
-                user=app.config['DATABASE_USER'],
-                password=app.config['DATABASE_PASSWORD'],
-                host=app.config['DATABASE_HOST'])
+        con = psycopg2.connect(app.config['SQLALCHEMY_DATABASE_URI'])
     except:
         print('Database missing, creating it.')
+        # Not needed on heroku as database comes with a table
         con = psycopg2.connect(dbname='postgres',
                 user=app.config['DATABASE_USER'],
                 password=app.config['DATABASE_PASSWORD'],

@@ -1,4 +1,5 @@
 from sixquiprend.sixquiprend import app
+import os
 
 # Load default config and override config from an environment variable
 app.config.update(dict(
@@ -8,9 +9,9 @@ app.config.update(dict(
     DATABASE_HOST='localhost',
     DATABASE_NAME='sixquiprend',
     SECRET_KEY='development key',
-    ADMIN_USERNAME='admin',
-    ADMIN_PASSWORD='admin',
-    ACTIVATE_ALL_USERS=True,
+    ADMIN_USERNAME=os.environ.get('ADMIN_USER', 'admin'),
+    ADMIN_PASSWORD=os.environ.get('ADMIN_PASSWORD', 'admin'),
+    ACTIVATE_ALL_USERS=bool(os.environ.get('ACTIVATE_ALL_USERS', True)),
     BOT_NAMES=['Azrael','Valdamar','Lüdwig','Seelöwe','Gallù'],
     HAND_SIZE=10,
     BOARD_SIZE=4,
@@ -21,4 +22,4 @@ app.config.update(dict(
 app.config.from_envvar('SIXQUIPREND_SETTINGS', silent=True)
 db_path = app.config['DATABASE_USER'] + ':' + app.config['DATABASE_PASSWORD']
 db_path += '@' + app.config['DATABASE_HOST'] + '/' + app.config['DATABASE_NAME']
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://' + db_path
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://' + db_path)

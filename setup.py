@@ -12,6 +12,7 @@ setup(
         'passlib',
         'bcrypt',
         'flask-login',
+        'gunicorn',
     ],
     setup_requires=[
         'pytest-runner',
