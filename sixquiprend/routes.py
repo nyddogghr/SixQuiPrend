@@ -52,6 +52,8 @@ def logout():
 
 @app.route('/users/register', methods=['POST'])
 def register():
+    if app.config['ALLOW_REGISTER_USERS'] != True:
+        return jsonify(error='Registering is deactivated'), 403
     """Register a new user"""
     user = User.query \
             .filter(User.username == request.get_json()['username']).first()

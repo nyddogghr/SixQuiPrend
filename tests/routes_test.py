@@ -217,6 +217,18 @@ class UsersTestCase(RoutesTestCase):
         )), content_type='application/json')
         assert rv.status_code == 400
 
+        # Registering deactivated
+        allow_register_users = app.config['ALLOW_REGISTER_USERS']
+        app.config['ALLOW_REGISTER_USERS'] = False
+        username = User.query.first().username
+        password = 'Password'
+        rv = self.app.post('/users/register', data=json.dumps(dict(
+            username=username,
+            password=password,
+        )), content_type='application/json')
+        assert rv.status_code == 403
+        app.config['ALLOW_REGISTER_USERS'] = allow_register_users
+
     def test_get_users(self):
         user = self.create_user()
         self.login()

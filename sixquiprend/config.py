@@ -11,6 +11,7 @@ app.config.update(dict(
     SECRET_KEY='development key',
     ADMIN_USERNAME=os.environ.get('ADMIN_USER', 'admin'),
     ADMIN_PASSWORD=os.environ.get('ADMIN_PASSWORD', 'admin'),
+    ALLOW_REGISTER_USERS=bool(os.environ.get('ALLOW_REGISTER_USERS', True)),
     ACTIVATE_ALL_USERS=bool(os.environ.get('ACTIVATE_ALL_USERS', True)),
     BOT_NAMES=['Azrael','Valdamar','Lüdwig','Seelöwe','Gallù'],
     HAND_SIZE=10,
