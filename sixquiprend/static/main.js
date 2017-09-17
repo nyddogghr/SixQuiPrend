@@ -13,13 +13,6 @@
           password: 'admin'
         };
 
-        $scope.get_cards = function() {
-          $http.get('/cards')
-          .then(function(response) {
-            $scope.cards = response.data.cards;
-          });
-        };
-
         $scope.login = function(user) {
           $http.post('/login', {
             username: user.username,
