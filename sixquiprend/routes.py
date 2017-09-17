@@ -359,10 +359,7 @@ def get_game_chosen_cards(game_id):
         return jsonify(error='No game found'), 404
     if game.status != Game.STATUS_STARTED:
         return jsonify(error='Can only show chosen cards for a started game'), 400
-    if ChosenCard.query.filter(game_id == game_id).count() < game.users.count():
-        for bot in game.users.filter(User.urole == User.BOT_ROLE).order_by(User.id).all():
-            if not bot.has_chosen_card(game_id):
-                bot.choose_card_for_game(game_id)
+    game.choose_cards_for_bots()
     user_count = game.users.count()
     chosen_cards = game.get_chosen_cards().order_by(ChosenCard.id)
     if chosen_cards.count() < user_count:

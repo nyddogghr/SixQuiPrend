@@ -126,6 +126,13 @@ class RoutesTestCase(unittest.TestCase):
         db.session.commit()
         return chosen_card
 
+class IndexTestCase(RoutesTestCase):
+
+    def test_get_index(self):
+        rv = self.app.get('/')
+        assert rv.status_code == 200
+        assert 'ng-app="SixQuiPrendApp"' in str(rv.data)
+
 class LoginLogoutTestCase(RoutesTestCase):
 
     def test_login_logout(self):
@@ -328,7 +335,7 @@ class GamesTestCase(RoutesTestCase):
         game_response = json.loads(rv.data)['game']
         assert game_response['id'] == game.id
 
-    def tes_get_game_errors(self):
+    def test_get_game_errors(self):
         # Game not found
         self.login()
         rv = self.app.get('/games/0')
@@ -790,29 +797,21 @@ class GamesTurnsTestCase(RoutesTestCase):
         assert rv.status_code == 400
 
         # User not in game
-        game = self.create_game(status=Game.STATUS_CREATED)
+        game = self.create_game(status=Game.STATUS_STARTED)
         rv = self.app.post('/games/'+str(game.id)+'/card/'+str(card.id))
         assert rv.status_code == 400
 
         # Card already chosen
-        game = self.create_game(status=Game.STATUS_STARTED)
         game.users.append(user)
         db.session.add(game)
         db.session.commit()
-        card2 = self.create_card()
-        hand = self.create_hand(game_id=game.id, user_id=user.id, cards=[card])
+        chosen_card = self.create_chosen_card(game.id, user.id, card.id)
         rv = self.app.post('/games/'+str(game.id)+'/card/'+str(card.id))
-        assert rv.status_code == 201
-        rv = self.app.post('/games/'+str(game.id)+'/card/'+str(card2.id))
         assert rv.status_code == 400
 
         # Card not owned
-        game = self.create_game(status=Game.STATUS_STARTED)
-        game.users.append(user)
-        db.session.add(game)
-        db.session.commit()
-        card2 = self.create_card()
-        hand = self.create_hand(game_id=game.id, user_id=user.id, cards=[])
+        db.session.delete(chosen_card)
+        hand = self.create_hand(game_id=game.id, user_id=user.id)
         rv = self.app.post('/games/'+str(game.id)+'/card/'+str(card.id))
         assert rv.status_code == 400
 
@@ -820,33 +819,27 @@ class GamesTurnsTestCase(RoutesTestCase):
         self.login()
         user = self.get_current_user()
         user2 = self.create_user()
-        bot = self.create_user(urole=User.BOT_ROLE)
         game = self.create_game(status=Game.STATUS_STARTED)
         game.users.append(user)
-        game.users.append(bot)
         game.users.append(user2)
         game.owner_id = user.id
         db.session.add(game)
         db.session.commit()
         card = self.create_card(1, 1)
         card2 = self.create_card(2, 2)
-        card3 = self.create_card(3, 3)
-        bot_hand = self.create_hand(game.id, bot.id, [card3])
         user_chosen_card = self.create_chosen_card(game.id, user.id, card.id)
         user2_chosen_card = self.create_chosen_card(game.id, user2.id, card2.id)
         rv = self.app.get('/games/'+str(game.id)+'/chosen_cards')
         assert rv.status_code == 200
         response_chosen_cards = sorted(json.loads(rv.data)['chosen_cards'],
                 key=lambda chosen_card: chosen_card['user_id'])
-        assert len(response_chosen_cards) == 3
+        assert len(response_chosen_cards) == 2
         for response_chosen_card in response_chosen_cards:
             assert response_chosen_card['game_id'] == game.id
         assert response_chosen_cards[0]['user_id'] == user.id
         assert response_chosen_cards[0]['card_id'] == card.id
         assert response_chosen_cards[1]['user_id'] == user2.id
         assert response_chosen_cards[1]['card_id'] == card2.id
-        assert response_chosen_cards[2]['user_id'] == bot.id
-        assert response_chosen_cards[2]['card_id'] == card3.id
 
     def test_get_chosen_cards_errors(self):
         # Game not found
@@ -885,6 +878,7 @@ class GamesTurnsTestCase(RoutesTestCase):
         card2 = self.create_card(2, 2)
         card3 = self.create_card(3, 3)
         user_hand = self.create_hand(game.id, user.id)
+        user2_hand = self.create_hand(game.id, user2.id)
         user_heap = self.create_heap(game.id, user.id)
         user_chosen_card = self.create_chosen_card(game.id, user.id, card2.id)
         user2_chosen_card = self.create_chosen_card(game.id, user2.id, card3.id)
@@ -963,7 +957,7 @@ class GamesTurnsTestCase(RoutesTestCase):
         self.login()
         game = self.create_game(status=Game.STATUS_CREATED)
         column = self.create_column(game.id)
-        rv = self.app.post('/games/0/columns/+'+str(column.id)+'/choose')
+        rv = self.app.post('/games/0/columns/'+str(column.id)+'/choose')
         assert rv.status_code == 404
 
         # Game not started

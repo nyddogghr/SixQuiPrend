@@ -68,8 +68,7 @@ class User(db.Model):
         return Hand.query.filter(Hand.game_id == game_id, Hand.user_id == self.id).first()
 
     def has_chosen_card(self, game_id):
-        return ChosenCard.query.filter(game_id == game_id,
-                ChosenCard.user_id == self.id).count() == 1
+        return self.get_chosen_card(game_id) != None
 
     def get_chosen_card(self, game_id):
         return ChosenCard.query.filter(game_id == game_id,
@@ -95,12 +94,10 @@ class User(db.Model):
         return chosen_card
 
     def needs_to_choose_column(self, game_id):
-        query = ChosenCard.query.filter(game_id == game_id,
-                ChosenCard.user_id == self.id)
-        if query.count() == 0:
+        if not self.has_chosen_card(game_id):
             return False
-        cc = query.first()
-        game = Game.query.filter(game_id == game_id).first()
+        cc = self.get_chosen_card(game_id)
+        game = Game.query.get(game_id)
         try:
             game.get_suitable_column(cc)
         except NoSuitableColumnException:
@@ -225,11 +222,18 @@ class Game(db.Model):
         db.session.add(self)
         db.session.commit()
 
+    def choose_cards_for_bots(self):
+        for bot in self.users.filter(User.urole == User.BOT_ROLE).order_by(User.id).all():
+            if not bot.has_chosen_card(self.id):
+                bot.choose_card_for_game(self.id)
+
     def check_status(self):
-        if len(self.users.first().get_game_hand(self.id).cards) == 0:
-            self.status = Game.STATUS_FINISHED
-            db.session.add(self)
-            db.session.commit()
+        for user in self.users:
+            if len(user.get_game_hand(self.id).cards) > 0:
+                return
+        self.status = Game.STATUS_FINISHED
+        db.session.add(self)
+        db.session.commit()
 
     def remove_owner(self, user_id):
         if self.owner_id != user_id:

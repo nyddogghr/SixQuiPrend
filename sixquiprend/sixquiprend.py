@@ -28,9 +28,6 @@ def unauthorized():
 
 class MyJSONEncoder(JSONEncoder):
     def default(self, obj):
-        if isinstance(obj, db.Model):
-            return obj.serialize()
-        else:
-            return obj
+        return obj.serialize()
 
 app.json_encoder = MyJSONEncoder

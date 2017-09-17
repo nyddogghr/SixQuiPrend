@@ -48,8 +48,10 @@ class ModelsTestCase(unittest.TestCase):
         db.session.commit()
         return game
 
-    def create_hand(self, game_id, user_id):
+    def create_hand(self, game_id, user_id, cards=[]):
         hand = Hand(game_id=game_id, user_id=user_id)
+        for card in cards:
+            hand.cards.append(card)
         db.session.add(hand)
         db.session.commit()
         return hand
@@ -74,7 +76,8 @@ class ModelsTestCase(unittest.TestCase):
         db.session.commit()
         return chosen_card
 
-    def create_card(self, number, cow_value):
+    def create_card(self, number=random.randint(1, 1000),
+            cow_value=random.randint(1, 1000)):
         card = Card(number=number, cow_value=cow_value)
         db.session.add(card)
         db.session.commit()
@@ -95,16 +98,13 @@ class UserTestCase(ModelsTestCase):
         db.session.add(hand)
         db.session.commit()
         assert len(user.get_game_hand(game.id).cards) == 1
-        chosen_card = ChosenCard.query.filter(ChosenCard.game_id == game.id,
-                ChosenCard.user_id == user.id,
-                ChosenCard.card_id == card.id).first()
+        chosen_card = user.get_chosen_card(game.id)
         assert chosen_card == None
         user.choose_card_for_game(game.id, card.id)
         assert len(user.get_game_hand(game.id).cards) == 0
-        chosen_card = ChosenCard.query.filter(ChosenCard.game_id == game.id,
-                ChosenCard.user_id == user.id,
-                ChosenCard.card_id == card.id).first()
+        chosen_card = user.get_chosen_card(game.id)
         assert chosen_card != None
+        assert chosen_card.card_id == card.id
 
     def test_choose_card_for_game_errors(self):
         user = self.create_user()
@@ -137,11 +137,21 @@ class UserTestCase(ModelsTestCase):
         db.session.add(column_two)
         db.session.commit()
         assert user.needs_to_choose_column(game.id) == False
-        chosen_card = ChosenCard(game_id=game.id, user_id=user.id,
-                card_id=card_one.id)
-        db.session.add(chosen_card)
-        db.session.commit()
+        chosen_card = self.create_chosen_card(game.id, user.id, card_one.id)
         assert user.needs_to_choose_column(game.id) == True
+        db.session.delete(chosen_card)
+        chosen_card = self.create_chosen_card(game.id, user.id, card_four.id)
+        assert user.needs_to_choose_column(game.id) == False
+
+    def test_login_statuses(self):
+        user = self.create_user()
+        assert user.is_anonymous() == False
+        assert user.is_authenticated() == False
+        user.authenticated = True
+        db.session.add(user)
+        db.session.commit()
+        db.session.refresh(user)
+        assert user.is_authenticated() == True
 
 class GameTestCase(ModelsTestCase):
 
@@ -298,8 +308,7 @@ class GameTestCase(ModelsTestCase):
         assert new_bot_heap.user_id == bot.id
         assert len(new_bot_heap.cards) == 1
         assert new_bot_heap.cards[0] == card_two
-        bot_chosen_card = ChosenCard.query.filter(ChosenCard.user_id == bot.id).first()
-        assert bot_chosen_card == None
+        assert bot.has_chosen_card(game.id) == False
 
     def test_resolve_turn_user_complete_column(self):
         column_card_size = app.config['COLUMN_CARD_SIZE']
@@ -336,8 +345,7 @@ class GameTestCase(ModelsTestCase):
         assert new_user_heap.user_id == user.id
         assert len(new_user_heap.cards) == 1
         assert new_user_heap.cards[0] == card_two
-        user_chosen_card = ChosenCard.query.filter(ChosenCard.user_id == user.id).first()
-        assert user_chosen_card == None
+        assert user.has_chosen_card(game.id) == False
         app.config['COLUMN_CARD_SIZE'] = column_card_size
 
     def test_setup_game(self):
@@ -356,14 +364,49 @@ class GameTestCase(ModelsTestCase):
         assert len(user.get_game_hand(game.id).cards) == app.config['HAND_SIZE']
         assert len(user.get_game_heap(game.id).cards) == 0
 
+    def test_choose_cards_for_bots(self):
+        game = self.create_game()
+        card = self.create_card(1, 1)
+        card2 = self.create_card(2, 2)
+        card3 = self.create_card(3, 3)
+        card4 = self.create_card(4, 4)
+        user = self.create_user()
+        bot1 = self.create_user(urole=User.BOT_ROLE)
+        bot2 = self.create_user(urole=User.BOT_ROLE)
+        user_hand = self.create_hand(game.id, user.id, [card])
+        bot1_hand = self.create_hand(game.id, bot1.id, [card2])
+        bot2_hand = self.create_hand(game.id, bot2.id, [card3])
+        game.users.append(user)
+        game.users.append(bot1)
+        game.users.append(bot2)
+        db.session.add(game)
+        db.session.commit()
+        bot2_chosen_card = self.create_chosen_card(game.id, bot2.id, card3.id)
+        game.choose_cards_for_bots()
+        assert user.has_chosen_card(game.id) == False
+        bot1_chosen_card = bot1.get_chosen_card(game.id)
+        assert bot1_chosen_card != None
+        assert bot1_chosen_card.card_id == card2.id
+        assert len(bot1.get_game_hand(game.id).cards) == 0
+        assert bot2.get_game_hand(game.id).cards == [card3]
+
     def test_check_status(self):
         user = self.create_user()
-        game = self.create_game()
+        user2 = self.create_user()
+        game = self.create_game(status=Game.STATUS_STARTED)
         game.users.append(user)
+        game.users.append(user2)
         game.owner_id = user.id
         db.session.add(game)
         db.session.commit()
+        card = self.create_card()
         hand = self.create_hand(game.id, user.id)
+        hand2 = self.create_hand(game.id, user2.id, [card])
+        game.check_status()
+        assert game.status == Game.STATUS_STARTED
+        hand2.cards = []
+        db.session.add(hand2)
+        db.session.commit()
         game.check_status()
         assert game.status == Game.STATUS_FINISHED
 
