@@ -9,7 +9,7 @@
 	</head>
 	<body ng-controller="SixQuiPrendController">
     {% raw %}
-    <div ng-if="!is_logged_in">
+    <div ng-if="!ui.is_logged_in">
       <form novalidate>
         <input type=text ng-model="user.username"/>
         <input type=text ng-model="user.password"/>
@@ -17,10 +17,28 @@
         <input type="submit" ng-click="register(user)" value="Register" />
       </form>
     </div>
-    <button ng-click="logout()" ng-if="is_logged_in">
+    <div ng-if="ui.is_logged_in">
+      Welcome {{current_user.username}}
+    </div>
+    <button ng-click="logout()" ng-if="ui.is_logged_in">
       Logout
     </button>
-		<br><br>
+		<br>
+		<br>
+    Available games:
+    <ul>
+      <li ng-repeat="game in games">
+        {{game.id}}
+        <button ng-click="enter_game(game)" ng-if="can_enter_game(game)">
+          Enter game
+        </button>
+      </li>
+    </ul>
+    <br>
+    <button ng-click="create_game()">Create game</button>
+    <br>
+    <br>
+    <ng-include src="'game.html'" ng-if="ui.in_game"></ng-include>
     <br>
     {% endraw %}
 		<!-- scripts -->
@@ -29,5 +47,6 @@
 		<script src="//netdna.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
 		<script src="//ajax.googleapis.com/ajax/libs/angularjs/1.4.5/angular.min.js"></script>
 		<script src="{{ url_for('static', filename='main.js') }}"></script>
+		<script src="{{ url_for('static', filename='array_util.js') }}"></script>
 	</body>
 </html>

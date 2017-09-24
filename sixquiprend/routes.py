@@ -18,6 +18,10 @@ def admin_required(func):
 def get_index():
     return render_template('index.html')
 
+@app.route('/game.html')
+def get_game_template():
+    return render_template('game.html')
+
 @app.route('/login', methods=['POST'])
 def login():
     """Log in"""
@@ -33,7 +37,7 @@ def login():
             db.session.add(user)
             db.session.commit()
             login_user(user, remember=True)
-            return jsonify(status=True), 201
+            return jsonify(status=True, user=user), 201
         else:
             return jsonify(error='Password is invalid'), 400
     else:
@@ -207,7 +211,7 @@ def add_bot_to_game(game_id, user_id):
     if not game:
         return jsonify(error='No game found'), 404
     if game.status != Game.STATUS_CREATED:
-        return jsonify(error='Cannot enter already started game'), 400
+        return jsonify(error='Cannot add a bot to an already started game'), 400
     if game.users.count() == app.config['MAX_PLAYER_NUMBER']:
         max_number = str(app.config['MAX_PLAYER_NUMBER'])
         error = 'Game has already ' + max_number + ' players'
