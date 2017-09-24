@@ -175,6 +175,17 @@ class GameTestCase(ModelsTestCase):
         assert results['User #0'] == 1
         assert results['User #1'] == 5
 
+    def test_get_results_created_game(self):
+        user_one = self.create_user()
+        user_two = self.create_user()
+        game = self.create_game(status=Game.STATUS_CREATED)
+        game.users.append(user_one)
+        game.owner_id = user_one.id
+        game.users.append(user_two)
+        db.session.add(game)
+        results = game.get_results()
+        assert results == {}
+
     def test_get_lowest_value_column(self):
         game = self.create_game()
         card_one = self.create_card(1, 10)

@@ -139,6 +139,8 @@ class Game(db.Model):
 
     def get_results(self):
         results = {}
+        if self.status == Game.STATUS_CREATED:
+            return results
         for user in self.users.all():
             user_game_heap = user.get_game_heap(self.id)
             results[user.username] = user_game_heap.get_value()
