@@ -109,7 +109,7 @@ class User(db.Model):
         return {
                 'id': self.id,
                 'username': self.username,
-                'urole': self.urole
+                'urole': self.urole,
                 }
 
 class Card(db.Model):

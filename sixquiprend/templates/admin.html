@@ -1,0 +1,35 @@
+{% raw %}
+<h2>
+  Admin panel
+</h2>
+<button ng-click="ui.admin.show_users = !ui.admin.show_users">
+  Show users
+</button>
+<br>
+<div  ng-if="ui.admin.show_users">
+  <label>
+    <input type='radio' ng-model="ui.admin.user_active" value='true'>
+    Active users
+  </label>
+  <label>
+    <input type='radio' ng-model="ui.admin.user_active" value='false'>
+    Inactive users
+  </label>
+  <ul>
+    <li ng-repeat="user in admin_panel_users">
+      {{user.username}} (#{{user.id}})
+      <button ng-if="ui.admin.user_active == 'true'"
+      ng-click="deactivate_user(user.id)">
+        Deactivate
+      </button>
+      <button ng-if="ui.admin.user_active == 'false'"
+      ng-click="activate_user(user.id)">
+        Activate
+      </button>
+    </li>
+  </ul>
+  <div ng-if="admin_panel_users.length == 0">
+    No {{ui.admin.user_active == 'true' ? 'active' : 'inactive'}} user
+  </div>
+<div>
+{% endraw %}

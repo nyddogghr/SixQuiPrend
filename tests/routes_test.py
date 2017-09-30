@@ -229,7 +229,7 @@ class UsersTestCase(RoutesTestCase):
 
     def test_get_users(self):
         user = self.create_user()
-        self.login()
+        self.login_admin()
         rv = self.app.get('/users')
         assert rv.status_code == 200
         users = json.loads(rv.data)['users']
@@ -247,6 +247,21 @@ class UsersTestCase(RoutesTestCase):
         users = json.loads(rv.data)['users']
         assert len(users) == 1
         assert users[-1]['username'] == user.username
+
+        # Test active filter
+        inactive_user = self.create_user(active=False)
+        rv = self.app.get('/users')
+        assert rv.status_code == 200
+        users = json.loads(rv.data)['users']
+        assert len(users) == 4
+        rv = self.app.get('/users?active=true')
+        assert rv.status_code == 200
+        users = json.loads(rv.data)['users']
+        assert len(users) == 3
+        rv = self.app.get('/users?active=false')
+        assert rv.status_code == 200
+        users = json.loads(rv.data)['users']
+        assert len(users) == 1
 
     def test_activate_users(self):
         user = self.create_user(False)

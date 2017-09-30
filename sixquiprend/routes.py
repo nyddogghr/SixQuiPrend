@@ -14,14 +14,26 @@ def admin_required(func):
         return func(*args, **kwargs)
     return func_wrapper
 
+#############################################################
+## Templates
 @app.route('/')
 def get_index():
     return render_template('index.html')
+
+@app.route('/home.html')
+def get_home_template():
+    return render_template('home.html')
+
+@app.route('/admin.html')
+def get_admin_template():
+    return render_template('admin.html')
 
 @app.route('/game.html')
 def get_game_template():
     return render_template('game.html')
 
+#############################################################
+## API
 @app.route('/login', methods=['POST'])
 def login():
     """Log in"""
@@ -72,11 +84,17 @@ def register():
 
 @app.route('/users', methods=['GET'])
 @login_required
+@admin_required
 def get_users():
-    """Display all users (admin only). Accepts offset and limit (up to 50)"""
+    """Display all users (admin only). Accepts offset and limit (up to 50),
+    and active argument filter"""
     limit = max(0, min(50, int(request.args.get('limit', 50))))
     offset = max(0, int(request.args.get('offset', 0)))
-    users = User.query.order_by(User.id).limit(limit).offset(offset).all()
+    active = request.args.get('active')
+    users = User.query
+    if active != None:
+        users = User.query.filter(User.active == (active != 'false'))
+    users = users.order_by(User.id).limit(limit).offset(offset).all()
     return jsonify(users=users)
 
 @app.route('/users/<int:user_id>/activate', methods=['PUT'])
