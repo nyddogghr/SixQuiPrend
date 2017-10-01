@@ -97,6 +97,18 @@ def get_users():
     users = users.order_by(User.id).limit(limit).offset(offset).all()
     return jsonify(users=users)
 
+@app.route('/users/count', methods=['GET'])
+@login_required
+@admin_required
+def count_users():
+    """Count all users (admin only). Accepts active argument filter"""
+    active = request.args.get('active')
+    users = User.query
+    if active != None:
+        users = User.query.filter(User.active == (active != 'false'))
+    count = users.count()
+    return jsonify(count=count)
+
 @app.route('/users/<int:user_id>/activate', methods=['PUT'])
 @login_required
 @admin_required
@@ -154,6 +166,12 @@ def get_games():
     offset = max(0, int(request.args.get('offset', 0)))
     games = Game.query.order_by(Game.id).limit(limit).offset(offset).all()
     return jsonify(games=games)
+
+@app.route('/games/count')
+def countt_games():
+    """Count all games."""
+    count = Game.query.count()
+    return jsonify(count=count)
 
 @app.route('/games/<int:game_id>')
 def get_game(game_id):

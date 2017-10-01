@@ -263,6 +263,29 @@ class UsersTestCase(RoutesTestCase):
         users = json.loads(rv.data)['users']
         assert len(users) == 1
 
+    def test_count_users(self):
+        user = self.create_user()
+        self.login_admin()
+        rv = self.app.get('/users/count')
+        assert rv.status_code == 200
+        count = json.loads(rv.data)['count']
+        assert count == 3
+
+        # Test active filter
+        inactive_user = self.create_user(active=False)
+        rv = self.app.get('/users/count')
+        assert rv.status_code == 200
+        count = json.loads(rv.data)['count']
+        assert count == 4
+        rv = self.app.get('/users/count?active=true')
+        assert rv.status_code == 200
+        count = json.loads(rv.data)['count']
+        assert count == 3
+        rv = self.app.get('/users/count?active=false')
+        assert rv.status_code == 200
+        count = json.loads(rv.data)['count']
+        assert count == 1
+
     def test_activate_users(self):
         user = self.create_user(False)
         self.login_admin()
@@ -332,7 +355,7 @@ class GamesTestCase(RoutesTestCase):
         game2 = self.create_game()
         rv = self.app.get('/games')
         assert rv.status_code == 200
-        games =  json.loads(rv.data)['games']
+        games = json.loads(rv.data)['games']
         assert len(games) == 2
         assert games[0]['id'] == game1.id
         assert games[1]['id'] == game2.id
@@ -340,14 +363,22 @@ class GamesTestCase(RoutesTestCase):
         # Test limit and offset
         rv = self.app.get('/games', query_string=dict(limit=1))
         assert rv.status_code == 200
-        games =  json.loads(rv.data)['games']
+        games = json.loads(rv.data)['games']
         assert len(games) == 1
         assert games[0]['id'] == game1.id
         rv = self.app.get('/games', query_string=dict(limit=1, offset=1))
         assert rv.status_code == 200
-        games =  json.loads(rv.data)['games']
+        games = json.loads(rv.data)['games']
         assert len(games) == 1
         assert games[0]['id'] == game2.id
+
+    def test_count_games(self):
+        game1 = self.create_game()
+        game2 = self.create_game()
+        rv = self.app.get('/games/count')
+        assert rv.status_code == 200
+        count = json.loads(rv.data)['count']
+        assert count == 2
 
     def test_get_game(self):
         game = self.create_game()
