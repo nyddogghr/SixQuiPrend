@@ -17,11 +17,21 @@
         in_game: false,
         is_logged_in: false,
         is_admin: false,
+        games: {
+          page: 1,
+          limit: 25
+        },
+        users: {
+          page: 1,
+          limit: 25
+        },
         admin: {
           user_active: 'true',
           show_users: false,
         }
       };
+
+      $scope.game_statuses = ['created', 'started', 'ended'];
 
       $scope.user = {
         username: 'admin',
@@ -67,19 +77,36 @@
       };
 
       $scope.get_games = function() {
-        $http.get('/games')
+        $http.get('/games?offset=' + ($scope.ui.games.page - 1)* $scope.ui.games.limit + '&limit=' + $scope.ui.games.limit)
         .then(function(response) {
           $scope.games = response.data.games;
         }, function(response) {
           growl.addErrorMessage(response.data.error);
         });
+        $http.get('/games/count')
+        .then(function(response) {
+          $scope.ui.games.max_page = Math.ceil(response.data.count/$scope.ui.games.limit);
+        }, function(response) {
+          growl.addErrorMessage(response.data.error);
+        });
       };
+
+      $scope.increase_games_page = function() {
+        $scope.ui.games.page = $scope.ui.games.page + 1;
+        $scope.get_games();
+      }
+
+      $scope.decrease_games_page = function() {
+        $scope.ui.games.page = $scope.ui.games.page - 1;
+        $scope.get_games();
+      }
 
       $scope.create_game = function() {
         $http.post('/games')
         .then(function(response) {
           $scope.ui.in_game = true;
           $scope.current_game = response.data.game;
+          $scope.get_games();
         }, function(response) {
           growl.addErrorMessage(response.data.error);
         });
@@ -100,6 +127,11 @@
             growl.addErrorMessage(response.data.error);
           });
         }
+      };
+
+      $scope.show_game = function(game) {
+        $scope.ui.in_game = true;
+        $scope.get_game(game.id);
       };
 
       // Game
@@ -145,13 +177,18 @@
       };
 
       $scope.leave_current_game = function() {
-        $http.put('/games/' + $scope.current_game.id + '/leave')
-        .then(function(response) {
-          $scope.current_game = {};
+        if (find_by_key($scope.current_game.users, 'id', $scope.current_user.id) == null) {
+          $scope.current_game = null;
           $scope.ui.in_game = false;
-        }, function(response) {
-          growl.addErrorMessage(response.data.error);
-        });
+        } else {
+          $http.put('/games/' + $scope.current_game.id + '/leave')
+          .then(function(response) {
+            $scope.current_game = {};
+            $scope.ui.in_game = false;
+          }, function(response) {
+            growl.addErrorMessage(response.data.error);
+          });
+        }
       };
 
       // Admin
@@ -160,14 +197,26 @@
         $http.get('/users?active=' + $scope.ui.admin.user_active)
         .then(function(response) {
           $scope.admin_panel_users = response.data.users;
-          // Remove self
-          remove_by_key($scope.admin_panel_users, 'id', $scope.current_user.id);
-          // Remove bots
-          remove_by_key($scope.admin_panel_users, 'urole', 1);
+        }, function(response) {
+          growl.addErrorMessage(response.data.error);
+        });
+        $http.get('/users/count?active=' + $scope.ui.admin.user_active)
+        .then(function(response) {
+          $scope.ui.users.max_page = Math.ceil(response.data.count/$scope.ui.users.limit);
         }, function(response) {
           growl.addErrorMessage(response.data.error);
         });
       };
+
+      $scope.increase_users_page = function() {
+        $scope.ui.users.page = $scope.ui.users.page + 1;
+        $scope.get_admin_panel_users();
+      }
+
+      $scope.decrease_users_page = function() {
+        $scope.ui.users.page = $scope.ui.users.page - 1;
+        $scope.get_admin_panel_users();
+      }
 
       $scope.deactivate_user = function(user_id) {
         $http.put('/users/' + user_id + '/deactivate')
@@ -203,8 +252,24 @@
         return false;
       };
 
+      $scope.can_show_game = function(game) {
+        if (!$scope.ui.is_logged_in)
+          return false;
+        if ($scope.current_game && game.id == $scope.current_game.id)
+          return false;
+        if (game.users.pluck('id').indexOf($scope.current_user.id) > -1)
+          return false;
+        if (game.status > 0)
+          return true;
+        return false;
+      };
+
       $scope.$watch('ui.admin.user_active', function() {
         $scope.get_admin_panel_users();
+      });
+
+      $scope.$watch('ui.games.limit', function() {
+        $scope.get_games();
       });
 
       // Initialisation
