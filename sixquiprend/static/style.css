@@ -15,21 +15,23 @@ h1 {
 h2 {
   font-size: 1.2em;
 }
+div {
+  padding: 5px;
+}
 .container {
   width: 100%;
   display: flex;
-  flex-direction: row;
   justify-content: space-between;
-}
-.flex-right {
-  width: 30em;
+  & > .rows {
+    flex-direction: row;
+  }
+  & > .columns {
+    flex-direction: column;
+  }
 }
 .top-bar {
   padding: 5px;
   width: 100%;
-}
-.top-left {
-  left: 5px;
 }
 button.toggled {
   border-color: darken($highlight-color, 20%);
