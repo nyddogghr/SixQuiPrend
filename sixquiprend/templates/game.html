@@ -2,14 +2,14 @@
 <h2>
   Game {{current_game.id}}
 </h2>
-<button ng-click="leave_current_game()">
+<button ng-click="leave_current_game()" ng-if="is_in_current_game()">
   Leave game
 </button>
 <br>
 Users:
 <ul>
   <li ng-repeat="user in current_game.users">
-    {{user.username}}
+    {{user.username}} {{current_game.owner_id == user.id ? '(owner)' : ''}}
   </li>
 </ul>
 <div ng-if="current_game.status == 0">
@@ -27,6 +27,6 @@ Users:
     Start game
   </button>
 </div>
-<div ng-if="current_game.status == 1">
+<div ng-if="current_game.status > 0">
 </div>
 {% endraw %}

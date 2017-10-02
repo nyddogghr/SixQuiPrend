@@ -1,15 +1,42 @@
-body            { font-family: sans-serif; background: #eee; }
-a, h1, h2       { color: #377ba8; }
-h1, h2          { font-family: 'Georgia', serif; margin: 0; }
-h1              { border-bottom: 2px solid #eee; }
-h2              { font-size: 1.2em; }
-
+body {
+  font-family: sans-serif;
+  background: #eee;
+}
+a, h1, h2 {
+  color: #377ba8;
+}
+h1, h2 {
+  font-family: 'Georgia', serif;
+  margin: 0;
+}
+h1 {
+  border-bottom: 2px solid #eee;
+}
+h2 {
+  font-size: 1.2em;
+}
+.container {
+  width: 100%;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+}
+.flex-right {
+  width: 30em;
+}
+.top-bar {
+  padding: 5px;
+  width: 100%;
+}
+.top-left {
+  left: 5px;
+}
 button.toggled {
   border-color: darken($highlight-color, 20%);
   box-shadow: inset 0 1px 5px rgba(0, 0, 0, 0.5);
   background: linear-gradient(lighten($highlight-color, 5%), $highlight-color);
 }
-button[disabled], .button[disabled]:hover {
+button[disabled], button[disabled]:hover {
   border-color: #bbb;
   color: #333;
   text-shadow: 0 1px 0 white;

@@ -20,6 +20,10 @@ def admin_required(func):
 def get_index():
     return render_template('index.html')
 
+@app.route('/top.html')
+def get_top_template():
+    return render_template('top.html')
+
 @app.route('/home.html')
 def get_home_template():
     return render_template('home.html')
@@ -168,7 +172,7 @@ def get_games():
     return jsonify(games=games)
 
 @app.route('/games/count')
-def countt_games():
+def count_games():
     """Count all games."""
     count = Game.query.count()
     return jsonify(count=count)

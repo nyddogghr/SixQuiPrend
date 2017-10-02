@@ -14,9 +14,6 @@
       // Variables
 
       $scope.ui = {
-        in_game: false,
-        is_logged_in: false,
-        is_admin: false,
         games: {
           page: 1,
           limit: 25
@@ -49,8 +46,6 @@
         })
         .then(function(response) {
           $scope.current_user = response.data.user;
-          $scope.ui.is_logged_in = response.data.status;
-          $scope.ui.is_admin = response.data.user.urole == 3;
         }, function(response) {
           growl.addErrorMessage(response.data.error);
         });
@@ -70,7 +65,7 @@
       $scope.logout = function() {
         $http.post('/logout')
         .then(function(response) {
-          $scope.ui.is_logged_in = false;
+          $scope.current_user = null;
         }, function(response) {
           growl.addErrorMessage(response.data.error);
         });
@@ -104,7 +99,6 @@
       $scope.create_game = function() {
         $http.post('/games')
         .then(function(response) {
-          $scope.ui.in_game = true;
           $scope.current_game = response.data.game;
           $scope.get_games();
         }, function(response) {
@@ -113,15 +107,12 @@
       };
 
       $scope.enter_game = function(game) {
-        var is_game_owner = game.owner_id == $scope.current_user.id;
-        var is_already_in_game = find_by_key(game.users, $scope.current_user.id) != null;
-        if (is_game_owner || is_already_in_game) {
-          $scope.ui.in_game = true;
+        var is_already_in_game = find_by_key(game.users, 'id', $scope.current_user.id) != null;
+        if (is_already_in_game) {
           $scope.get_game(game.id);
         } else {
           $http.post('/games/' + game.id + '/enter')
           .then(function(response) {
-            $scope.ui.in_game = true;
             $scope.current_game = response.data.game;
           }, function(response) {
             growl.addErrorMessage(response.data.error);
@@ -130,7 +121,6 @@
       };
 
       $scope.show_game = function(game) {
-        $scope.ui.in_game = true;
         $scope.get_game(game.id);
       };
 
@@ -179,12 +169,10 @@
       $scope.leave_current_game = function() {
         if (find_by_key($scope.current_game.users, 'id', $scope.current_user.id) == null) {
           $scope.current_game = null;
-          $scope.ui.in_game = false;
         } else {
           $http.put('/games/' + $scope.current_game.id + '/leave')
           .then(function(response) {
-            $scope.current_game = {};
-            $scope.ui.in_game = false;
+            $scope.current_game = null;
           }, function(response) {
             growl.addErrorMessage(response.data.error);
           });
@@ -238,31 +226,35 @@
 
       // UI
 
+      $scope.is_in_current_game = function() {
+        return $scope.current_user && $scope.current_game &&
+          find_by_key($scope.current_game.users, 'id', $scope.current_user.id) != null;
+      };
+
       $scope.can_enter_game = function(game) {
-        if (!$scope.ui.is_logged_in)
+        var game_is_shown = $scope.current_game && game.id == $scope.current_game.id;
+        var is_already_in_game = game.users.pluck('id').indexOf($scope.current_user.id) > -1;
+        var game_created = game.status == 0;
+        var game_complete = game.users.length == 5;
+        if (!$scope.current_user || game_is_shown || is_already_in_game || !game_created || game_complete)
           return false;
-        if ($scope.current_game && game.id == $scope.current_game.id)
-          return false;
-        if (game.users.pluck('id').indexOf($scope.current_user.id) > -1)
+        else
           return true;
-        if (game.status != 0)
-          return false;
-        if (game.users.length < 5)
-          return true;
-        return false;
       };
 
       $scope.can_show_game = function(game) {
-        if (!$scope.ui.is_logged_in)
+        var game_is_shown = $scope.current_game && game.id == $scope.current_game.id;
+        if (!$scope.current_user || game_is_shown)
           return false;
-        if ($scope.current_game && game.id == $scope.current_game.id)
-          return false;
-        if (game.users.pluck('id').indexOf($scope.current_user.id) > -1)
-          return false;
-        if (game.status > 0)
+        else
           return true;
-        return false;
       };
+
+      $scope.is_admin = function() {
+        return $scope.current_user && $scope.current_user.urole == 3;
+      };
+
+      // Events
 
       $scope.$watch('ui.admin.user_active', function() {
         $scope.get_admin_panel_users();
@@ -274,15 +266,12 @@
 
       // Initialisation
 
-      // Get current user status on loading
       $http.get('/users/current')
       .then(function(response) {
         $scope.current_user = response.data.user;
-        $scope.ui.is_logged_in = response.data.status;
-        $scope.ui.is_admin = response.data.user.urole == 3;
       }, function(response) {
         growl.addErrorMessage(response.data.error);
-        $scope.ui.is_logged_in = false;
+        $scope.current_user = null;
       });
 
       $scope.get_games();

@@ -1,0 +1,20 @@
+{% raw %}
+<div class="top-bar">
+  <div class="top-left">
+    <div ng-if="!current_user">
+      <form novalidate>
+        <input type=text ng-model="user.username"/>
+        <input type=text ng-model="user.password"/>
+        <input type="submit" ng-click="login(user)" value="Login" />
+        <input type="submit" ng-click="register(user)" value="Register" />
+      </form>
+    </div>
+    <div ng-if="current_user">
+      Welcome {{current_user.username}}
+      <button ng-click="logout()">
+        Logout
+      </button>
+    </div>
+  </div>
+</div>
+{% endraw %}

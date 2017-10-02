@@ -1,28 +1,15 @@
 {% raw %}
-<div growl></div>
-<div ng-if="!ui.is_logged_in">
-  <form novalidate>
-    <input type=text ng-model="user.username"/>
-    <input type=text ng-model="user.password"/>
-    <input type="submit" ng-click="login(user)" value="Login" />
-    <input type="submit" ng-click="register(user)" value="Register" />
-  </form>
-</div>
-<div ng-if="ui.is_logged_in">
-  Welcome {{current_user.username}}
-  <button ng-click="logout()">
-    Logout
-  </button>
-</div>
-<br>
+<h2>
+  Game panel
+</h2>
 Available games:
 <ul>
   <li ng-repeat="game in games">
     Game #{{game.id}} ({{game_statuses[game.status]}})
-    <button ng-click="enter_game(game)" ng-disabled="can_enter_game(game)">
+    <button ng-click="enter_game(game)" ng-disabled="!can_enter_game(game)">
       Enter game
     </button>
-    <button ng-click="show_game(game)" ng-disabled="can_show_game(game)">
+    <button ng-click="show_game(game)" ng-disabled="!can_show_game(game)">
       Show game
     </button>
     <ul>
@@ -45,8 +32,6 @@ ui.games.max_page">
 </button>
 <br>
 Display <input type="number" ng-model="ui.games.limit" min=1 max=25> games
-<br>
-<br>
 <br>
 <button ng-click="create_game()">Create game</button>
 <br>
