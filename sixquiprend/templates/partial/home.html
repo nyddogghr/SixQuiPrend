@@ -1,0 +1,40 @@
+{% raw %}
+<div ng-controller="HomeController">
+  <h2>
+    Game panel
+  </h2>
+  Available games:
+  <ul>
+    <li ng-repeat="game in games">
+      Game #{{game.id}} ({{game_statuses[game.status]}})
+      <button ng-click="enter_game(game)" ng-disabled="!can_enter_game(game)">
+        Enter game
+      </button>
+      <button ng-click="show_game(game)" ng-disabled="!can_show_game(game)">
+        Show game
+      </button>
+      <ul>
+        <li ng-repeat="user in game.users">
+          {{user.username}}
+        </li>
+      </ul>
+    </li>
+  </ul>
+  <div ng-if="games.length == 0">
+    No game
+  </div>
+  <button ng-click="decrease_games_page()" ng-disabled="ui.page <= 1">
+    Previous page
+  </button>
+  Page {{ui.page}}/{{ui.max_page}}
+  <button ng-click="increase_games_page()" ng-disabled="ui.page >=
+  ui.max_page">
+    Next page
+  </button>
+  <br>
+  Display <input type="number" ng-model="ui.limit" min=1 max=25> games
+  <br>
+  <button ng-click="create_game()">Create game</button>
+  <br>
+</div>
+{% endraw %}

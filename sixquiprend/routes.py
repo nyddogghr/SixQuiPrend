@@ -20,21 +20,9 @@ def admin_required(func):
 def get_index():
     return render_template('index.html')
 
-@app.route('/top.html')
-def get_top_template():
-    return render_template('top.html')
-
-@app.route('/home.html')
-def get_home_template():
-    return render_template('home.html')
-
-@app.route('/admin.html')
-def get_admin_template():
-    return render_template('admin.html')
-
-@app.route('/game.html')
-def get_game_template():
-    return render_template('game.html')
+@app.route('/partial/<path:path>')
+def get_partial_template(path):
+    return render_template('/partial/{}'.format(path))
 
 #############################################################
 ## API

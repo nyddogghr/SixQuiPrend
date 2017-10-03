@@ -5,18 +5,18 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
 		<!-- styles -->
 		<link href="//netdna.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" rel="stylesheet" media="screen">
-		<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
-		<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='angular-growl.min.css') }}">
+		<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/style.css') }}">
+		<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/angular-growl.min.css') }}">
 	</head>
 	<body ng-controller="SixQuiPrendController">
     {% raw %}
     <div growl>
     </div>
-    <ng-include src="'top.html'"></ng-include>
+    <ng-include src="'partial/top.html'"></ng-include>
     <div class="container rows">
-      <ng-include src="'game.html'" ng-if="current_game"></ng-include>
-      <ng-include src="'home.html'"></ng-include>
-      <ng-include src="'admin.html'" ng-if="is_admin"></ng-include>
+      <ng-include src="'partial/game.html'" ng-show="current_game"></ng-include>
+      <ng-include src="'partial/home.html'"></ng-include>
+      <ng-include src="'partial/admin.html'" ng-if="is_admin()"></ng-include>
     </div>
     {% endraw %}
 		<!-- scripts -->
@@ -24,8 +24,12 @@
 		<script src="//code.jquery.com/jquery-2.2.1.min.js"></script>
 		<script src="//netdna.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
 		<script src="//ajax.googleapis.com/ajax/libs/angularjs/1.4.5/angular.min.js"></script>
-		<script src="{{ url_for('static', filename='angular-growl.js') }}"></script>
-		<script src="{{ url_for('static', filename='main.js') }}"></script>
-		<script src="{{ url_for('static', filename='array_util.js') }}"></script>
+		<script src="{{ url_for('static', filename='js/angular-growl.js') }}"></script>
+		<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+		<script src="{{ url_for('static', filename='js/top_controller.js') }}"></script>
+		<script src="{{ url_for('static', filename='js/game_controller.js') }}"></script>
+		<script src="{{ url_for('static', filename='js/home_controller.js') }}"></script>
+		<script src="{{ url_for('static', filename='js/admin_controller.js') }}"></script>
+		<script src="{{ url_for('static', filename='js/array_util.js') }}"></script>
 	</body>
 </html>

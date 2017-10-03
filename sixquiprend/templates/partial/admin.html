@@ -1,0 +1,51 @@
+{% raw %}
+<div ng-controller="AdminController">
+  <h2>
+    Admin panel
+  </h2>
+  <button ng-click="ui.show_users = !ui.show_users"
+          class="{{ui.show_users ? 'toggled' : ''}}">
+    Show users
+  </button>
+  <br>
+  <div ng-if="ui.show_users">
+    <label>
+      <input type='radio' ng-model="ui.user_active" value='true'>
+      Active users
+    </label>
+    <label>
+      <input type='radio' ng-model="ui.user_active" value='false'>
+      Inactive users
+    </label>
+    <ul>
+      <li ng-repeat="user in users">
+        {{user.username}} (#{{user.id}})
+        <button ng-if="ui.user_active == 'true'"
+        ng-click="deactivate_user(user.id)" ng-disabled="user.urole == 1 ||
+        user.id == current_user.id">
+          Deactivate
+        </button>
+        <button ng-if="ui.user_active == 'false'"
+        ng-click="activate_user(user.id)">
+          Activate
+        </button>
+      </li>
+    </ul>
+    <div ng-if="users.length == 0">
+      No {{ui.user_active == 'true' ? 'active' : 'inactive'}} user
+    </div>
+    <div ng-if="users.length > 0">
+      <button ng-click="decrease_users_page()" ng-disabled="users.page <= 1">
+        Previous page
+      </button>
+      Page {{users.page}}/{{users.max_page}}
+      <button ng-click="increase_users_page()" ng-disabled="users.page >=
+      users.max_page">
+        Next page
+      </button>
+      <br>
+      Display <input type="number" ng-model="users.limit" min=1 max=25> users
+    </div>
+  <div>
+</div>
+{% endraw %}
