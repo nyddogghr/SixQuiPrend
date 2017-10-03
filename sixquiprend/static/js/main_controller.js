@@ -1,14 +1,7 @@
 'use strict';
 
-var app = angular.module('SixQuiPrendApp', ['angular-growl']);
-
-app.config(['growlProvider', function(growlProvider) {
-  growlProvider.globalTimeToLive(5000);
-}])
-
-app.controller('SixQuiPrendController', ['$rootScope', '$scope', '$http', 'growl',
+app.controller('MainController', ['$rootScope', '$scope', '$http', 'growl',
   function($rootScope, $scope, $http, growl) {
-
 
     // UI
 

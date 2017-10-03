@@ -8,7 +8,7 @@
 		<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/style.css') }}">
 		<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/angular-growl.min.css') }}">
 	</head>
-	<body ng-controller="SixQuiPrendController">
+	<body ng-controller="MainController">
     {% raw %}
     <div growl>
     </div>
@@ -25,7 +25,8 @@
 		<script src="//netdna.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
 		<script src="//ajax.googleapis.com/ajax/libs/angularjs/1.4.5/angular.min.js"></script>
 		<script src="{{ url_for('static', filename='js/angular-growl.js') }}"></script>
-		<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+		<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+		<script src="{{ url_for('static', filename='js/main_controller.js') }}"></script>
 		<script src="{{ url_for('static', filename='js/top_controller.js') }}"></script>
 		<script src="{{ url_for('static', filename='js/game_controller.js') }}"></script>
 		<script src="{{ url_for('static', filename='js/home_controller.js') }}"></script>
