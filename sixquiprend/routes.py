@@ -386,8 +386,8 @@ def choose_card_for_game(game_id, card_id):
 @app.route('/games/<int:game_id>/chosen_cards')
 @login_required
 def get_game_chosen_cards(game_id):
-    """Display chosen cards for a game. Only available once all users have
-    chosen"""
+    """Display chosen cards for a game. Only returns current user chosen card
+    if not all users have chosen"""
     game = Game.query.get(game_id)
     if not game:
         return jsonify(error='No game found'), 404
@@ -397,7 +397,10 @@ def get_game_chosen_cards(game_id):
     user_count = game.users.count()
     chosen_cards = game.get_chosen_cards().order_by(ChosenCard.id)
     if chosen_cards.count() < user_count:
-        return jsonify(error='Some users haven\'t chosen a card'), 400
+        chosen_cards = chosen_cards.filter(ChosenCard.user_id ==
+                current_user.id)
+        if chosen_cards.count() == 0:
+            return jsonify(error='You haven\'t chosen a card'), 400
     return jsonify(chosen_cards=chosen_cards.all())
 
 @app.route('/games/<int:game_id>/turns/resolve', methods=['POST'])
