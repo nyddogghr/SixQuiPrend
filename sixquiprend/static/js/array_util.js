@@ -124,9 +124,9 @@ function remove_values(array, values)
  * Sum values from array
  * @return integer
  */
-function sum_values(array, value)
+function sum_values(array, attribute)
 {
-  return array.reduce(function(sum, value) {
+  return array.pluck(attribute).reduce(function(sum, value) {
     return sum + value;
   }, 0);
 }

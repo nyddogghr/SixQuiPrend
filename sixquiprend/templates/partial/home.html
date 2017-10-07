@@ -13,6 +13,9 @@
       <button ng-click="show_game(game)" ng-disabled="!can_show_game(game)">
         Show game
       </button>
+      <button ng-click="delete_game(game)" ng-show="is_admin()">
+        Delete game
+      </button>
       <ul>
         <li ng-repeat="user in game.users">
           {{user.username}}

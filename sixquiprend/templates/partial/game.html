@@ -12,8 +12,13 @@
         Leave game
       </button>
       <br>
+      <button ng-click="resolve_turn()" ng-if="can_resolve_turn()">
+        Resolve turn
+      </button>
+      <br>
       <button ng-click="ui.display_users = !ui.display_users"
-              ng-if="is_in_current_game()" class="{{ui.display_users ? 'toggled' : ''">
+              ng-if="is_in_current_game()" class="{{ui.display_users ?
+              'toggled' : ''}}">
         Display users
       </button>
       <div ng-if="ui.display_users">
@@ -32,15 +37,21 @@
                 </label>
                 {{get_heap_sum(user.id)}}
               </li>
-              <li>
-                <label>
-                  Has chosen a card:
-                </label>
-                {{current_game_users[user.id]['has_chosen_card']}}
-              </li>
-              <li ng-if="current_game_users[user.id]['needs_to_choose_column']"
+              <li ng-if="current_game_users[user.id].needs_to_choose_column"
                 class="user_must_choose">
                 Needs to choose a column for his card!
+              </li>
+              <li ng-if="has_chosen_card(user.id)">
+                <label>
+                  Chosen card:
+                </label>
+                Card {{current_game_user_chosen_cards[user.id].number}}
+                ({{"&#128004;".repeat(current_game_user_chosen_cards[user.id].cow_value)}})
+              </li>
+              <li ng-if="!has_chosen_card(user.id)">
+                <label>
+                  Hasn't chosen a card yet
+                </label>
               </li>
             </ul>
           </li>
@@ -63,13 +74,28 @@
       </div>
     </div>
     <div ng-if="current_game.status > 0">
-      <div ng-if=is_in_current_game()>
+      <div ng-if="is_in_current_game()">
         Your hand:
         <div class="container columns">
-          <div ng-repeat="card in current_game_user_hand.cards" class="card">
+          <div ng-repeat="card in current_game_user_hand.cards"
+            ng-click="choose_card(card.id)"
+            class="card {{has_chosen_card(current_user.id) ? '' : 'chosable'}}">
             {{card.number}}
             <br>
             {{"&#128004;".repeat(card.cow_value)}}
+          </div>
+        </div>
+        <div ng-if="!has_chosen_card(current_user.id)">
+          Choose a card by clicking on it
+        </div>
+      </div>
+      <div ng-if="is_in_current_game() && has_chosen_card(current_user.id)">
+        Chosen card:
+        <div class="container columns">
+          <div class="card">
+            {{current_game_user_chosen_cards[current_user.id].number}}
+            <br>
+            {{"&#128004;".repeat(current_game_user_chosen_cards[current_user.id].cow_value)}}
           </div>
         </div>
       </div>

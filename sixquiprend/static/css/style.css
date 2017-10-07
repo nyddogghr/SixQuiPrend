@@ -29,15 +29,19 @@ div {
     flex-direction: column;
   }
 }
-button {
-  margin: 2px;
-}
 .card {
   border: 1px solid black;
   text-align: center;
   margin: 1px;
   width: 5em;
   height: 5em;
+}
+.chosable:hover {
+  border: 2px solid green;
+  cursor: pointer;
+}
+button {
+  margin: 2px;
 }
 button.toggled {
   border-color: darken($highlight-color, 20%);
@@ -53,7 +57,4 @@ button[disabled], button[disabled]:hover {
   opacity: 0.6;
   box-shadow: none;
   top: 0;
-}
-.user_must_choose {
-  color: red;
 }

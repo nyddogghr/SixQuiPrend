@@ -42,7 +42,7 @@ app.controller('HomeController', ['$rootScope', '$scope', '$http', 'growl',
     $scope.create_game = function() {
       $http.post('/games')
       .then(function(response) {
-        $scope.current_game = response.data.game;
+        $rootScope.$broadcast('game_chosen', response.data.game.id);
         $scope.get_games();
       }, function(response) {
         growl.addErrorMessage(response.data.error);
@@ -65,6 +65,15 @@ app.controller('HomeController', ['$rootScope', '$scope', '$http', 'growl',
 
     $scope.show_game = function(game) {
       $rootScope.$broadcast('game_chosen', game.id);
+    };
+
+    $scope.delete_game = function(game) {
+      $http.delete('/games/' + game.id)
+      .then(function(response) {
+        $scope.get_games();
+      }, function(response) {
+        growl.addErrorMessage(response.data.error);
+      });
     };
 
     // UI
