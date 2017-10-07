@@ -16,8 +16,8 @@ class CardNotOwnedException(Exception):
     pass
 
 user_games = db.Table('user_games',
-        db.Column('user_id', db.Integer, db.ForeignKey('user.id')),
-        db.Column('game_id', db.Integer, db.ForeignKey('game.id'))
+        db.Column('user_id', db.Integer, db.ForeignKey('user.id', ondelete="CASCADE")),
+        db.Column('game_id', db.Integer, db.ForeignKey('game.id', ondelete="CASCADE"))
 )
 
 class User(db.Model):
@@ -261,13 +261,13 @@ class Game(db.Model):
                 }
 
 column_cards = db.Table('column_cards',
-        db.Column('column_id', db.Integer, db.ForeignKey('column.id')),
+        db.Column('column_id', db.Integer, db.ForeignKey('column.id', ondelete="CASCADE")),
         db.Column('card_id', db.Integer, db.ForeignKey('card.id'))
 )
 
 class Column(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    game_id = db.Column(db.Integer, db.ForeignKey('game.id'))
+    game_id = db.Column(db.Integer, db.ForeignKey('game.id', ondelete="CASCADE"))
     cards = db.relationship('Card', secondary=column_cards,
             backref=db.backref('columns', lazy='dynamic'))
 
@@ -291,14 +291,14 @@ class Column(db.Model):
                 }
 
 hand_cards = db.Table('hand_cards',
-        db.Column('hand_id', db.Integer, db.ForeignKey('hand.id')),
+        db.Column('hand_id', db.Integer, db.ForeignKey('hand.id', ondelete="CASCADE")),
         db.Column('card_id', db.Integer, db.ForeignKey('card.id'))
 )
 
 class Hand(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    game_id = db.Column(db.Integer, db.ForeignKey('game.id'))
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete="CASCADE"))
+    game_id = db.Column(db.Integer, db.ForeignKey('game.id', ondelete="CASCADE"))
     cards = db.relationship('Card', secondary=hand_cards,
             backref=db.backref('hands', lazy='dynamic'))
 
@@ -311,14 +311,14 @@ class Hand(db.Model):
                 }
 
 heap_cards = db.Table('heap_cards',
-        db.Column('heap_id', db.Integer, db.ForeignKey('heap.id')),
+        db.Column('heap_id', db.Integer, db.ForeignKey('heap.id', ondelete="CASCADE")),
         db.Column('card_id', db.Integer, db.ForeignKey('card.id'))
 )
 
 class Heap(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    game_id = db.Column(db.Integer, db.ForeignKey('game.id'))
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete="CASCADE"))
+    game_id = db.Column(db.Integer, db.ForeignKey('game.id', ondelete="CASCADE"))
     cards = db.relationship('Card', secondary=heap_cards,
             backref=db.backref('heaps', lazy='dynamic'))
 
@@ -335,8 +335,8 @@ class Heap(db.Model):
 
 class ChosenCard(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    game_id = db.Column(db.Integer, db.ForeignKey('game.id'))
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete="CASCADE"))
+    game_id = db.Column(db.Integer, db.ForeignKey('game.id', ondelete="CASCADE"))
     card_id = db.Column(db.Integer, db.ForeignKey('card.id'))
 
     def get_user(self):
