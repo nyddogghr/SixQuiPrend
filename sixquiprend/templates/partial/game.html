@@ -5,16 +5,47 @@
   </h2>
   <div class="container rows">
     <div>
+      <button ng-click="hide_current_game()">
+        Hide game
+      </button>
       <button ng-click="leave_current_game()" ng-if="is_in_current_game()">
         Leave game
       </button>
       <br>
-      Users:
-      <ul>
-        <li ng-repeat="user in current_game.users">
-          {{user.username}} {{current_game.owner_id == user.id ? '(owner)' : ''}}
-        </li>
-      </ul>
+      <button ng-click="ui.display_users = !ui.display_users"
+              ng-if="is_in_current_game()" class="{{ui.display_users ? 'toggled' : ''">
+        Display users
+      </button>
+      <div ng-if="ui.display_users">
+        Users:
+        <ul>
+          <li ng-repeat="user in current_game.users">
+            <label>
+            {{user.username}}
+            {{current_game.owner_id == user.id ? '(owner)' : ''}}
+            {{current_user.id == user.id ? '(you)' : ''}}
+            </label>
+            <ul>
+              <li>
+                <label>
+                  Heap sum:
+                </label>
+                {{get_heap_sum(user.id)}}
+              </li>
+              <li>
+                <label>
+                  Has chosen a card:
+                </label>
+                {{current_game_users[user.id]['has_chosen_card']}}
+              </li>
+              <li ng-if="current_game_users[user.id]['needs_to_choose_column']"
+                class="user_must_choose">
+                Needs to choose a column for his card!
+              </li>
+            </ul>
+          </li>
+        </ul>
+      </div>
       <div ng-if="current_game.status == 0">
         Available bots:
         <ul>

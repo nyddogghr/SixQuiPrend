@@ -1,7 +1,7 @@
 'use strict';
 
-app.controller('AdminController', ['$rootScope', '$scope', '$http', 'growl',
-  function($rootScope, $scope, $http, growl) {
+app.controller('AdminController', ['$scope', '$http', 'growl',
+  function($scope, $http, growl) {
 
     // Variables
 
@@ -9,7 +9,7 @@ app.controller('AdminController', ['$rootScope', '$scope', '$http', 'growl',
       page: 1,
       limit: 25,
       user_active: 'true',
-      show_users: false,
+      display_users: false,
     };
 
     // Methods

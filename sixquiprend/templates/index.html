@@ -14,8 +14,8 @@
     </div>
     <ng-include src="'partial/top.html'"></ng-include>
     <div class="container rows">
-      <ng-include src="'partial/game.html'" ng-show="current_game"></ng-include>
-      <ng-include src="'partial/home.html'"></ng-include>
+      <ng-include src="'partial/game.html'" ng-show="is_in_game"></ng-include>
+      <ng-include src="'partial/home.html'" ng-hide="is_in_game"></ng-include>
       <ng-include src="'partial/admin.html'" ng-if="is_admin()"></ng-include>
     </div>
     {% endraw %}

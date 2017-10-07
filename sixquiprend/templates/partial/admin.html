@@ -3,12 +3,12 @@
   <h2>
     Admin panel
   </h2>
-  <button ng-click="ui.show_users = !ui.show_users"
-          class="{{ui.show_users ? 'toggled' : ''}}">
-    Show users
+  <button ng-click="ui.display_users = !ui.display_users"
+          class="{{ui.display_users ? 'toggled' : ''}}">
+    Display users
   </button>
   <br>
-  <div ng-if="ui.show_users">
+  <div ng-if="ui.display_users">
     <label>
       <input type='radio' ng-model="ui.user_active" value='true'>
       Active users

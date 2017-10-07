@@ -30,6 +30,7 @@ app.controller('TopController', ['$rootScope', '$scope', '$http', 'growl',
         password: user.password
       })
       .then(function(response) {
+        growl.addSuccessMessage("Registered with success");
       }, function(response) {
         growl.addErrorMessage(response.data.error);
       });
@@ -43,6 +44,16 @@ app.controller('TopController', ['$rootScope', '$scope', '$http', 'growl',
         growl.addErrorMessage(response.data.error);
       });
     };
+
+    // Initialisation
+
+    $http.get('/users/current')
+    .then(function(response) {
+      $rootScope.current_user = response.data.user;
+    }, function(response) {
+      growl.addErrorMessage(response.data.error);
+      $rootScope.current_user = null;
+    });
 
   }
 ]);

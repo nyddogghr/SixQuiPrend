@@ -120,6 +120,17 @@ function remove_values(array, values)
   });
 }
 
+/**
+ * Sum values from array
+ * @return integer
+ */
+function sum_values(array, value)
+{
+  return array.reduce(function(sum, value) {
+    return sum + value;
+  }, 0);
+}
+
 // The following methods extend the native array class - be warned!
 //   - Array.pluck(attr) -> array
 //   - Array.min -> value
