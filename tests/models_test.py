@@ -260,32 +260,6 @@ class GameTestCase(ModelsTestCase):
         suitable_column = game.get_suitable_column(chosen_card)
         assert suitable_column == column_two
 
-    def test_get_suitable_column_bot(self):
-        bot = self.create_user(User.BOT_ROLE)
-        game = self.create_game()
-        game.users.append(bot)
-        game.owner_id = bot.id
-        db.session.add(game)
-        card_one = self.create_card(1, 1)
-        card_two = self.create_card(2, 2)
-        card_three = self.create_card(3, 3)
-        card_four = self.create_card(4, 4)
-        column_one = self.create_column(game.id)
-        column_one.cards.append(card_two)
-        column_two = self.create_column(game.id)
-        column_two.cards.append(card_three)
-        db.session.add(column_one)
-        db.session.add(column_two)
-        db.session.commit()
-        bot_heap = self.create_heap(bot.id, game.id)
-        chosen_card = self.create_chosen_card(game.id, bot.id,
-                card_one.id)
-        assert len(bot_heap.cards) == 0
-        suitable_column = game.get_suitable_column(chosen_card)
-        assert suitable_column == column_one
-        assert len(bot_heap.cards) == 1
-        assert bot_heap.cards[0] == card_two
-
     def test_resolve_turn_auto_bot(self):
         user = self.create_user()
         bot = self.create_user(User.BOT_ROLE)
@@ -320,6 +294,38 @@ class GameTestCase(ModelsTestCase):
         assert len(new_bot_heap.cards) == 1
         assert new_bot_heap.cards[0] == card_two
         assert bot.has_chosen_card(game.id) == False
+
+    def test_resolve_turn_error_user(self):
+        user = self.create_user()
+        user2 = self.create_user()
+        game = self.create_game()
+        game.users.append(user2)
+        game.owner_id = user2.id
+        game.users.append(user)
+        db.session.add(game)
+        card_one = self.create_card(1, 1)
+        card_two = self.create_card(2, 2)
+        card_three = self.create_card(3, 3)
+        card_four = self.create_card(4, 4)
+        column_one = self.create_column(game.id)
+        column_one.cards.append(card_two)
+        column_two = self.create_column(game.id)
+        column_two.cards.append(card_three)
+        db.session.add(column_one)
+        db.session.add(column_two)
+        db.session.commit()
+        user2_heap = self.create_heap(game.id, user2.id)
+        user2_hand = self.create_hand(game.id, user2.id)
+        user_heap = self.create_heap(game.id, user.id)
+        user_hand = self.create_hand(game.id, user.id)
+        user2_chosen_card = self.create_chosen_card(game.id, user2.id,
+                card_one.id)
+        user_chosen_card = self.create_chosen_card(game.id, user.id,
+                card_four.id)
+        assert len(user2_heap.cards) == 0
+        with self.assertRaises(NoSuitableColumnException) as e:
+            [suitable_column, new_user2_heap] = game.resolve_turn()
+        assert e.exception.args[0] == user2.id
 
     def test_resolve_turn_user_complete_column(self):
         column_card_size = app.config['COLUMN_CARD_SIZE']

@@ -176,11 +176,7 @@ class Game(db.Model):
                 chosen_column = column
                 diff = diff_temp
         if chosen_column == None:
-            if chosen_card.get_user().get_urole() == User.BOT_ROLE:
-                chosen_column = self.get_lowest_value_column()
-                chosen_column.replace_by_card(chosen_card)
-            else:
-                raise NoSuitableColumnException(chosen_card.user_id)
+            raise NoSuitableColumnException(chosen_card.user_id)
         return chosen_column
 
     def resolve_turn(self):
@@ -188,7 +184,14 @@ class Game(db.Model):
                 .join(Card) \
                 .order_by(Card.number.asc()) \
                 .first()
-        chosen_column = self.get_suitable_column(chosen_card)
+        try:
+            chosen_column = self.get_suitable_column(chosen_card)
+        except NoSuitableColumnException as e:
+            if chosen_card.get_user().urole == User.BOT_ROLE:
+                chosen_column = self.get_lowest_value_column()
+                chosen_column.replace_by_card(chosen_card)
+            else:
+                raise e
         user_game_heap = chosen_card.get_user().get_game_heap(self.id)
         if len(chosen_column.cards) == app.config['COLUMN_CARD_SIZE']:
             user_game_heap.cards += chosen_column.cards
@@ -347,5 +350,5 @@ class ChosenCard(db.Model):
                 'id': self.id,
                 'user_id': self.user_id,
                 'game_id': self.game_id,
-                'card_id': self.card_id
+                'card': self.get_card()
                 }
