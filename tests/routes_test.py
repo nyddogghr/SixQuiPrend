@@ -849,7 +849,7 @@ class GamesTurnsTestCase(RoutesTestCase):
         response_chosen_card = json.loads(rv.data)['chosen_card']
         assert response_chosen_card['game_id'] == game.id
         assert response_chosen_card['user_id'] == user.id
-        assert response_chosen_card['card_id'] == card.id
+        assert response_chosen_card['card']['id'] == card.id
 
     def test_choose_card_errors_game_not_found(self):
         self.login()
@@ -922,9 +922,9 @@ class GamesTurnsTestCase(RoutesTestCase):
         for response_chosen_card in response_chosen_cards:
             assert response_chosen_card['game_id'] == game.id
         assert response_chosen_cards[0]['user_id'] == user.id
-        assert response_chosen_cards[0]['card_id'] == card.id
+        assert response_chosen_cards[0]['card']['id'] == card.id
         assert response_chosen_cards[1]['user_id'] == user2.id
-        assert response_chosen_cards[1]['card_id'] == card2.id
+        assert response_chosen_cards[1]['card']['id'] == card2.id
 
     def test_get_chosen_cards_for_current_user_only(self):
         self.login()
@@ -947,7 +947,7 @@ class GamesTurnsTestCase(RoutesTestCase):
         for response_chosen_card in response_chosen_cards:
             assert response_chosen_card['game_id'] == game.id
         assert response_chosen_cards[0]['user_id'] == user.id
-        assert response_chosen_cards[0]['card_id'] == card.id
+        assert response_chosen_cards[0]['card']['id'] == card.id
 
     def test_get_chosen_cards_errors_game_not_found(self):
         self.login()
