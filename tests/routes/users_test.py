@@ -8,7 +8,7 @@ from sixquiprend.utils import *
 import json
 import unittest
 
-class RoutesTestCase(unittest.TestCase):
+class UsersTestCase(unittest.TestCase):
 
     USERNAME = 'User'
     PASSWORD = 'Password'
@@ -125,13 +125,6 @@ class RoutesTestCase(unittest.TestCase):
         db.session.add(chosen_card)
         db.session.commit()
         return chosen_card
-
-class IndexTestCase(RoutesTestCase):
-
-    def test_get_index(self):
-        rv = self.app.get('/')
-        assert rv.status_code == 200
-        assert 'ng-app="SixQuiPrendApp"' in str(rv.data)
 
 class LoginLogoutTestCase(RoutesTestCase):
 
@@ -676,7 +669,7 @@ class GamesActionsTestCase(RoutesTestCase):
         rv = self.app.put('/games/'+str(game.id)+'/start')
         assert rv.status_code == 400
 
-class GamesTurnsTestCase(RoutesTestCase):
+class GamesDataTestCase(RoutesTestCase):
 
     def test_get_columns(self):
         self.login()
@@ -834,6 +827,8 @@ class GamesTurnsTestCase(RoutesTestCase):
         game = self.create_game(status=Game.STATUS_STARTED)
         rv = self.app.get('/games/'+str(game.id)+'/users/current/hand')
         assert rv.status_code == 404
+
+class GamesTurnsTestCase(RoutesTestCase):
 
     def test_choose_card(self):
         self.login()

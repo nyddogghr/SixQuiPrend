@@ -40,6 +40,9 @@ div {
   border: 2px solid green;
   cursor: pointer;
 }
+.user_must_choose {
+  color: red
+}
 button {
   margin: 2px;
 }
