@@ -1,9 +1,9 @@
-from sixquiprend.sixquiprend import app, db
+from passlib.hash import bcrypt
 from sixquiprend.models.chosen_card import ChosenCard
 from sixquiprend.models.hand import Hand
 from sixquiprend.models.heap import Heap
 from sixquiprend.models.six_qui_prend_exception import SixQuiPrendException
-from passlib.hash import bcrypt
+from sixquiprend.sixquiprend import app, db
 import random
 
 user_games = db.Table('user_games',
@@ -28,6 +28,12 @@ class User(db.Model):
     ################################################################################
     ## Getters
     ################################################################################
+
+    def find(user_id):
+        user = User.query.get(user_id)
+        if not user:
+            raise SixQuiPrendException('User doesn\'t exist', 404)
+        return user
 
     def is_active(self):
         return self.active
@@ -65,15 +71,14 @@ class User(db.Model):
         return ChosenCard.query.filter(game_id == game_id,
                 ChosenCard.user_id == self.id).first()
 
-    def find(user_id):
-        user = User.query.get(user_id)
-        if not user:
-            raise SixQuiPrendException('User doesn\'t exist', 404)
-        return user
-
     ################################################################################
     ## Actions
     ################################################################################
+
+    def delete(user_id):
+        user = User.find(user_id)
+        db.session.delete(user)
+        db.session.commit()
 
     def register(username, password):
         user = User.query.filter(User.username == username).first()
@@ -111,11 +116,7 @@ class User(db.Model):
         self.active = active
         db.session.add(self)
         db.session.commit()
-        return user
-
-    def delete(self):
-        db.session.delete(self)
-        db.session.commit()
+        return self
 
     ################################################################################
     ## Serializer

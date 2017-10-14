@@ -1,7 +1,7 @@
 from flask import jsonify
-from sixquiprend.sixquiprend import app
 from flask_login import login_required, current_user
 from sixquiprend.models.game import Game
+from sixquiprend.sixquiprend import app
 
 @app.route('/games/<int:game_id>/card/<int:card_id>', methods=['POST'])
 @login_required
@@ -16,7 +16,6 @@ def choose_card_for_game(game_id, card_id):
 def choose_cards_for_bots(game_id):
     """Choose cards for bots"""
     game = Game.find(game_id)
-    game.check_is_owner(current_user.id)
     game.choose_cards_for_bots()
     return jsonify(), 201
 
@@ -27,8 +26,7 @@ def resolve_game_turn(game_id):
     lowest value card if possible and returns the updated column and the user
     game heap, else returns the user_id that must choose a column to replace"""
     game = Game.find(game_id)
-    game.check_is_owner(current_user.id)
-    [chosen_column, user_game_heap] = game.resolve_turn()
+    [chosen_column, user_game_heap] = game.resolve_turn(current_user.id)
     return jsonify(chosen_column=chosen_column, user_heap=user_game_heap), 201
 
 @app.route('/games/<int:game_id>/columns/<int:column_id>/choose', methods=['POST'])

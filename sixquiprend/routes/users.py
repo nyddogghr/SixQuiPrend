@@ -1,7 +1,7 @@
 from flask import request, jsonify
-from sixquiprend.sixquiprend import app, admin_required
 from flask_login import login_required, current_user
 from sixquiprend.models.user import User
+from sixquiprend.sixquiprend import app, admin_required
 
 @app.route('/users', methods=['GET'])
 @login_required
@@ -53,8 +53,7 @@ def deactivate_user(user_id):
 @admin_required
 def delete_user(user_id):
     """Delete a user (admin only)"""
-    user = User.find(user_id)
-    user.delete()
+    User.delete(user_id)
     return '', 204
 
 @app.route('/users/current')

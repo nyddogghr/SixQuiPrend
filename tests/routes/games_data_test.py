@@ -1,14 +1,15 @@
 from flask import Flask
 from passlib.hash import bcrypt
 from sixquiprend.config import *
-from sixquiprend.models import *
-from sixquiprend.routes import *
+from sixquiprend.models.game import Game
+from sixquiprend.models.user import User
 from sixquiprend.sixquiprend import app, db
 from sixquiprend.utils import *
 import json
+import random
 import unittest
 
-class GamesDataTestCase(RoutesTestCase):
+class GamesDataTestCase(unittest.TestCase):
 
     USERNAME = 'User'
     PASSWORD = 'Password'
@@ -48,17 +49,6 @@ class GamesDataTestCase(RoutesTestCase):
             username=self.USERNAME,
             password=self.PASSWORD,
         )), content_type='application/json')
-        assert rv.status_code == 201
-
-    def login_admin(self):
-        rv = self.app.post('/login', data=json.dumps(dict(
-            username=self.ADMIN_USERNAME,
-            password=self.ADMIN_PASSWORD,
-        )), content_type='application/json')
-        assert rv.status_code == 201
-
-    def logout(self):
-        rv = self.app.post('/logout', content_type='application/json')
         assert rv.status_code == 201
 
     def get_current_user(self):
@@ -138,17 +128,6 @@ class GamesDataTestCase(RoutesTestCase):
         assert len(response_columns[0]['cards']) == 1
         assert response_columns[0]['cards'][0] == card.serialize()
 
-    def test_get_columns_errors_game_not_found(self):
-        self.login()
-        rv = self.app.get('/games/0/columns')
-        assert rv.status_code == 404
-
-    def test_get_columns_errors_game_not_started(self):
-        self.login()
-        game = self.create_game(status=Game.STATUS_CREATED)
-        rv = self.app.get('/games/'+str(game.id)+'/columns')
-        assert rv.status_code == 400
-
     def test_get_users(self):
         self.login()
         game = self.create_game()
@@ -161,11 +140,6 @@ class GamesDataTestCase(RoutesTestCase):
         response_users = json.loads(rv.data)['users']
         assert len(response_users) == 1
         assert response_users[0]['id'] == user.id
-
-    def test_get_users_errors_game_not_found(self):
-        self.login()
-        rv = self.app.get('/games/0/users')
-        assert rv.status_code == 404
 
     def test_get_user_status(self):
         self.login()
@@ -187,28 +161,6 @@ class GamesDataTestCase(RoutesTestCase):
         response_status = json.loads(rv.data)['user']
         assert response_status['has_chosen_card'] == True
 
-    def test_get_user_status_errors_game_not_found(self):
-        self.login()
-        user = self.create_user()
-        rv = self.app.get('/games/0/users/'+str(user.id)+'/status')
-        assert rv.status_code == 404
-
-    def test_get_user_status_errors_game_not_started(self):
-        self.login()
-        user = self.create_user()
-        game = self.create_game(status=Game.STATUS_CREATED)
-        game.users.append(user)
-        db.session.add(game)
-        db.session.commit()
-        rv = self.app.get('/games/'+str(game.id)+'/users/'+str(user.id)+'/status')
-        assert rv.status_code == 400
-
-    def test_get_user_status_errors_user_not_in_game(self):
-        self.login()
-        game = self.create_game(status=Game.STATUS_STARTED)
-        rv = self.app.get('/games/'+str(game.id)+'/users/0/status')
-        assert rv.status_code == 404
-
     def test_get_user_heap(self):
         self.login()
         user = self.create_user()
@@ -224,29 +176,6 @@ class GamesDataTestCase(RoutesTestCase):
         assert len(response_heap['cards']) == 1
         assert response_heap['cards'][0]['id'] == card.id
 
-    def test_get_user_heap_errors_game_not_found(self):
-        self.login()
-        user = self.create_user()
-        rv = self.app.get('/games/0/users/'+str(user.id)+'/heap')
-        assert rv.status_code == 404
-
-    def test_get_user_heap_errors_game_not_started(self):
-        self.login()
-        user = self.create_user()
-        game = self.create_game(status=Game.STATUS_CREATED)
-        game.users.append(user)
-        db.session.add(game)
-        db.session.commit()
-        rv = self.app.get('/games/'+str(game.id)+'/users/'+str(user.id)+'/heap')
-        assert rv.status_code == 400
-
-    def test_get_user_heap_errors_user_not_in_game(self):
-        self.login()
-        user = self.create_user()
-        game = self.create_game(status=Game.STATUS_STARTED)
-        rv = self.app.get('/games/'+str(game.id)+'/users/'+str(user.id)+'/heap')
-        assert rv.status_code == 404
-
     def test_get_current_user_hand(self):
         self.login()
         user = self.get_current_user()
@@ -261,27 +190,6 @@ class GamesDataTestCase(RoutesTestCase):
         response_hand = json.loads(rv.data)['hand']
         assert len(response_hand['cards']) == 1
         assert response_hand['cards'][0]['id'] == card.id
-
-    def test_get_current_user_hand_errors_game_not_found(self):
-        self.login()
-        rv = self.app.get('/games/0/users/current/hand')
-        assert rv.status_code == 404
-
-    def test_get_current_user_hand_errors_game_not_started(self):
-        self.login()
-        user = self.get_current_user()
-        game = self.create_game(status=Game.STATUS_CREATED)
-        game.users.append(user)
-        db.session.add(game)
-        db.session.commit()
-        rv = self.app.get('/games/'+str(game.id)+'/users/current/hand')
-        assert rv.status_code == 400
-
-    def test_get_current_user_hand_errors_user_not_in_game(self):
-        self.login()
-        game = self.create_game(status=Game.STATUS_STARTED)
-        rv = self.app.get('/games/'+str(game.id)+'/users/current/hand')
-        assert rv.status_code == 404
 
 if __name__ == '__main__':
     unittest.main()

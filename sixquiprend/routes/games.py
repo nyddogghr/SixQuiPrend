@@ -1,5 +1,4 @@
 from flask import request, jsonify
-from sixquiprend.sixquiprend import app, admin_required
 from flask_login import login_required, current_user
 from sixquiprend.models.card import Card
 from sixquiprend.models.chosen_card import ChosenCard
@@ -8,6 +7,7 @@ from sixquiprend.models.game import Game
 from sixquiprend.models.hand import Hand
 from sixquiprend.models.heap import Heap
 from sixquiprend.models.user import User
+from sixquiprend.sixquiprend import app, admin_required
 
 @app.route('/games')
 def get_games():
@@ -42,8 +42,7 @@ def create_game():
 @admin_required
 def delete_game(game_id):
     """Delete a game (admin only)"""
-    game = Game.find(game_id)
-    game.delete()
+    Game.delete(game_id)
     return '', 204
 
 @app.route('/games/<int:game_id>/enter', methods=['POST'])
@@ -66,8 +65,7 @@ def get_available_bots_for_game(game_id):
 def add_bot_to_game(game_id, bot_id):
     """Add a bot to a game"""
     game = Game.find(game_id)
-    game.check_is_owner(current_user.id)
-    game.add_bot(bot_id)
+    game.add_bot(bot_id, current_user.id)
     return jsonify(game=game), 201
 
 @app.route('/games/<int:game_id>/leave', methods=['PUT'])
@@ -83,6 +81,5 @@ def leave_game(game_id):
 def start_game(game_id):
     """Start a game (only game owner can start it)"""
     game = Game.find(game_id)
-    game.check_is_owner(current_user.id)
-    game.setup()
+    game.setup(current_user.id)
     return jsonify(game=game), 200

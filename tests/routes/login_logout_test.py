@@ -1,14 +1,13 @@
 from flask import Flask
 from passlib.hash import bcrypt
 from sixquiprend.config import *
-from sixquiprend.models import *
-from sixquiprend.routes import *
+from sixquiprend.models.user import User
 from sixquiprend.sixquiprend import app, db
 from sixquiprend.utils import *
 import json
 import unittest
 
-class LoginLogoutTestCase(RoutesTestCase):
+class LoginLogoutTestCase(unittest.TestCase):
 
     USERNAME = 'User'
     PASSWORD = 'Password'
@@ -50,23 +49,9 @@ class LoginLogoutTestCase(RoutesTestCase):
         )), content_type='application/json')
         assert rv.status_code == 201
 
-    def login_admin(self):
-        rv = self.app.post('/login', data=json.dumps(dict(
-            username=self.ADMIN_USERNAME,
-            password=self.ADMIN_PASSWORD,
-        )), content_type='application/json')
-        assert rv.status_code == 201
-
     def logout(self):
         rv = self.app.post('/logout', content_type='application/json')
         assert rv.status_code == 201
-
-    def get_current_user(self):
-        rv = self.app.get('/users/current')
-        assert rv.status_code == 200
-        result = json.loads(rv.data)
-        if result['status'] == True:
-            return User.query.get(result['user']['id'])
 
     def create_user(self, active=True, urole=User.PLAYER_ROLE):
         username = 'User #'+str(User.query.count())
@@ -78,53 +63,6 @@ class LoginLogoutTestCase(RoutesTestCase):
         db.session.add(user)
         db.session.commit()
         return user
-
-    def create_game(self, status=Game.STATUS_CREATED):
-        game = Game(status=status)
-        db.session.add(game)
-        db.session.commit()
-        return game
-
-    def create_column(self, game_id, cards=[]):
-        column = Column(game_id=game_id)
-        for card in cards:
-            column.cards.append(card)
-        db.session.add(column)
-        db.session.commit()
-        return column
-
-    def create_heap(self, game_id, user_id, cards=[]):
-        heap = Heap(game_id=game_id, user_id=user_id)
-        for card in cards:
-            heap.cards.append(card)
-        db.session.add(heap)
-        db.session.commit()
-        return heap
-
-    def create_hand(self, game_id, user_id, cards=[]):
-        hand = Hand(game_id=game_id, user_id=user_id)
-        for card in cards:
-            hand.cards.append(card)
-        db.session.add(hand)
-        db.session.commit()
-        return hand
-
-    def create_card(self, number=random.randint(1, 1000),
-            cow_value=random.randint(1, 1000)):
-        card = Card(number, cow_value)
-        db.session.add(card)
-        db.session.commit()
-        return card
-
-    def create_chosen_card(self, game_id, user_id, card_id=None):
-        if card_id == None:
-            card = self.create_card()
-            card_id = card.id
-        chosen_card = ChosenCard(game_id=game_id, user_id=user_id,
-                card_id=card_id)
-        db.session.add(chosen_card)
-        db.session.commit()
-        return chosen_card
 
     def test_login_logout(self):
         rv = self.app.get('/users/current')

@@ -1,11 +1,17 @@
 from flask import Flask
 from passlib.hash import bcrypt
 from sixquiprend.config import *
-from sixquiprend.models import *
-from sixquiprend.routes import *
+from sixquiprend.models.card import Card
+from sixquiprend.models.chosen_card import ChosenCard
+from sixquiprend.models.column import Column
+from sixquiprend.models.game import Game
+from sixquiprend.models.hand import Hand
+from sixquiprend.models.heap import Heap
+from sixquiprend.models.user import User
 from sixquiprend.sixquiprend import app, db
 from sixquiprend.utils import *
 import json
+import random
 import unittest
 
 class HeapTestCase(unittest.TestCase):
@@ -48,33 +54,13 @@ class HeapTestCase(unittest.TestCase):
         db.session.commit()
         return game
 
-    def create_hand(self, game_id, user_id, cards=[]):
-        hand = Hand(game_id=game_id, user_id=user_id)
-        for card in cards:
-            hand.cards.append(card)
-        db.session.add(hand)
-        db.session.commit()
-        return hand
-
-    def create_column(self, game_id):
-        column = Column(game_id=game_id)
-        db.session.add(column)
-        db.session.commit()
-        return column
-
-    def create_heap(self, game_id, user_id):
+    def create_heap(self, game_id, user_id, cards=[]):
         heap = Heap(game_id=game_id, user_id=user_id)
+        for card in cards:
+            heap.cards.append(card)
         db.session.add(heap)
         db.session.commit()
         return heap
-
-    def create_chosen_card(self, game_id, user_id, card_id):
-        chosen_card = ChosenCard(game_id=game_id,
-                user_id=user_id,
-                card_id=card_id)
-        db.session.add(chosen_card)
-        db.session.commit()
-        return chosen_card
 
     def create_card(self, number=random.randint(1, 1000),
             cow_value=random.randint(1, 1000)):
@@ -83,12 +69,16 @@ class HeapTestCase(unittest.TestCase):
         db.session.commit()
         return card
 
+    ################################################################################
+    ## Getters
+    ################################################################################
+
     def test_get_value(self):
-        heap = Heap()
-        card_one = Card(number=1, cow_value=1)
-        card_two = Card(number=2, cow_value=2)
-        heap.cards.append(card_one)
-        heap.cards.append(card_two)
+        game = self.create_game()
+        user = self.create_user()
+        card_one = self.create_card(number=1, cow_value=1)
+        card_two = self.create_card(number=2, cow_value=2)
+        heap = self.create_heap(game.id, user.id, [card_one, card_two])
         assert heap.get_value() == card_one.cow_value + card_two.cow_value
 
 if __name__ == '__main__':

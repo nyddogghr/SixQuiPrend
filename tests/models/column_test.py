@@ -1,14 +1,20 @@
 from flask import Flask
 from passlib.hash import bcrypt
 from sixquiprend.config import *
-from sixquiprend.models import *
-from sixquiprend.routes import *
+from sixquiprend.models.card import Card
+from sixquiprend.models.chosen_card import ChosenCard
+from sixquiprend.models.column import Column
+from sixquiprend.models.game import Game
+from sixquiprend.models.hand import Hand
+from sixquiprend.models.heap import Heap
+from sixquiprend.models.user import User
 from sixquiprend.sixquiprend import app, db
 from sixquiprend.utils import *
 import json
+import random
 import unittest
 
-class ColumnTestCase(ModelsTestCase):
+class ColumnTestCase(unittest.TestCase):
 
     USERNAME = 'User'
     PASSWORD = 'Password'
@@ -48,16 +54,10 @@ class ColumnTestCase(ModelsTestCase):
         db.session.commit()
         return game
 
-    def create_hand(self, game_id, user_id, cards=[]):
-        hand = Hand(game_id=game_id, user_id=user_id)
-        for card in cards:
-            hand.cards.append(card)
-        db.session.add(hand)
-        db.session.commit()
-        return hand
-
-    def create_column(self, game_id):
+    def create_column(self, game_id, cards=[]):
         column = Column(game_id=game_id)
+        for card in cards:
+            column.cards.append(card)
         db.session.add(column)
         db.session.commit()
         return column
@@ -83,6 +83,21 @@ class ColumnTestCase(ModelsTestCase):
         db.session.commit()
         return card
 
+    ################################################################################
+    ## Getters
+    ################################################################################
+
+    def test_get_value(self):
+        game = self.create_game()
+        card_one = self.create_card(number=1, cow_value=1)
+        card_two = self.create_card(number=2, cow_value=2)
+        column = self.create_column(game.id, cards=[card_one, card_two])
+        assert column.get_value() == card_one.cow_value + card_two.cow_value
+
+    ################################################################################
+    ## Actions
+    ################################################################################
+
     def test_replace_by_card(self):
         user = self.create_user()
         game = self.create_game()
@@ -105,14 +120,6 @@ class ColumnTestCase(ModelsTestCase):
         column.replace_by_card(chosen_card)
         expected_value = card_two.cow_value + card_three.cow_value
         assert user.get_game_heap(game.id).get_value() == expected_value
-
-    def test_get_value(self):
-        column = Column()
-        card_one = Card(number=1, cow_value=1)
-        card_two = Card(number=2, cow_value=2)
-        column.cards.append(card_one)
-        column.cards.append(card_two)
-        assert column.get_value() == card_one.cow_value + card_two.cow_value
 
 if __name__ == '__main__':
     unittest.main()

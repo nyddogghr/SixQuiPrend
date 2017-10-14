@@ -1,8 +1,8 @@
 from flask import request, jsonify
-from sixquiprend.sixquiprend import app
 from flask_login import login_required, current_user, \
      login_user, logout_user
 from sixquiprend.models.user import User
+from sixquiprend.sixquiprend import app
 
 @app.route('/login', methods=['POST'])
 def login():

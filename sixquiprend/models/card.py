@@ -6,6 +6,16 @@ class Card(db.Model):
     cow_value = db.Column(db.Integer, nullable=False)
 
     ################################################################################
+    ## Getters
+    ################################################################################
+
+    def find(card_id):
+        card = Card.query.get(card_id)
+        if not card:
+            raise SixQuiPrendException('Card doesn\'t exist', 404)
+        return card
+
+    ################################################################################
     ## Serializer
     ################################################################################
 

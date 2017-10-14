@@ -1,11 +1,11 @@
 from flask import Flask
 from passlib.hash import bcrypt
 from sixquiprend.config import *
-from sixquiprend.models import *
-from sixquiprend.routes import *
+from sixquiprend.models.game import Game
 from sixquiprend.sixquiprend import app, db
 from sixquiprend.utils import *
 import json
+import random
 import unittest
 
 class GamesTurnTestCase(unittest.TestCase):
@@ -48,17 +48,6 @@ class GamesTurnTestCase(unittest.TestCase):
             username=self.USERNAME,
             password=self.PASSWORD,
         )), content_type='application/json')
-        assert rv.status_code == 201
-
-    def login_admin(self):
-        rv = self.app.post('/login', data=json.dumps(dict(
-            username=self.ADMIN_USERNAME,
-            password=self.ADMIN_PASSWORD,
-        )), content_type='application/json')
-        assert rv.status_code == 201
-
-    def logout(self):
-        rv = self.app.post('/logout', content_type='application/json')
         assert rv.status_code == 201
 
     def get_current_user(self):
@@ -142,55 +131,6 @@ class GamesTurnTestCase(unittest.TestCase):
         assert response_chosen_card['user_id'] == user.id
         assert response_chosen_card['card']['id'] == card.id
 
-    def test_choose_card_errors_game_not_found(self):
-        self.login()
-        user = self.get_current_user()
-        game = self.create_game(status=Game.STATUS_STARTED)
-        game.users.append(user)
-        card = self.create_card()
-        rv = self.app.post('/games/0/card/'+str(card.id))
-        assert rv.status_code == 404
-
-    def test_choose_card_errors_game_not_started(self):
-        self.login()
-        user = self.get_current_user()
-        game = self.create_game(status=Game.STATUS_CREATED)
-        game.users.append(user)
-        card = self.create_card()
-        rv = self.app.post('/games/'+str(game.id)+'/card/'+str(card.id))
-        assert rv.status_code == 400
-
-    def test_choose_card_errors_user_not_in_game(self):
-        self.login()
-        game = self.create_game(status=Game.STATUS_STARTED)
-        card = self.create_card()
-        rv = self.app.post('/games/'+str(game.id)+'/card/'+str(card.id))
-        assert rv.status_code == 400
-
-    def test_choose_card_errors_card_already_chosen(self):
-        self.login()
-        user = self.get_current_user()
-        game = self.create_game(status=Game.STATUS_STARTED)
-        game.users.append(user)
-        db.session.add(game)
-        db.session.commit()
-        card = self.create_card()
-        chosen_card = self.create_chosen_card(game.id, user.id, card.id)
-        rv = self.app.post('/games/'+str(game.id)+'/card/'+str(card.id))
-        assert rv.status_code == 400
-
-    def test_choose_card_errors_card_not_owned(self):
-        self.login()
-        user = self.get_current_user()
-        game = self.create_game(status=Game.STATUS_STARTED)
-        game.users.append(user)
-        db.session.add(game)
-        db.session.commit()
-        hand = self.create_hand(game_id=game.id, user_id=user.id)
-        card = self.create_card()
-        rv = self.app.post('/games/'+str(game.id)+'/card/'+str(card.id))
-        assert rv.status_code == 400
-
     def test_get_chosen_cards(self):
         self.login()
         user = self.get_current_user()
@@ -240,28 +180,6 @@ class GamesTurnTestCase(unittest.TestCase):
         assert response_chosen_cards[0]['user_id'] == user.id
         assert response_chosen_cards[0]['card']['id'] == card.id
 
-    def test_get_chosen_cards_errors_game_not_found(self):
-        self.login()
-        rv = self.app.get('/games/0/chosen_cards')
-        assert rv.status_code == 404
-
-    def test_get_chosen_cards_errors_game_not_started(self):
-        self.login()
-        game = self.create_game(status=Game.STATUS_CREATED)
-        rv = self.app.get('/games/'+str(game.id)+'/chosen_cards')
-        assert rv.status_code == 400
-
-    def test_get_chosen_cards_errors_current_user_hasnt_chosen(self):
-        self.login()
-        user = self.get_current_user()
-        game = self.create_game(status=Game.STATUS_STARTED)
-        game.users.append(user)
-        game.owner_id = user.id
-        db.session.add(game)
-        db.session.commit()
-        rv = self.app.get('/games/'+str(game.id)+'/chosen_cards')
-        assert rv.status_code == 400
-
     def test_resolve_turn(self):
         self.login()
         user = self.get_current_user()
@@ -288,60 +206,6 @@ class GamesTurnTestCase(unittest.TestCase):
         assert response['user_heap']['user_id'] == user.id
         assert len(response['user_heap']['cards']) == 0
 
-    def test_resolve_turn_errors_game_not_found(self):
-        self.login()
-        rv = self.app.post('/games/0/turns/resolve')
-        assert rv.status_code == 404
-
-    def test_resolve_turn_errors_game_not_started(self):
-        self.login()
-        game = self.create_game(status=Game.STATUS_CREATED)
-        rv = self.app.post('/games/'+str(game.id)+'/turns/resolve')
-        assert rv.status_code == 400
-
-    def test_resolve_turn_errors_not_game_owner(self):
-        self.login()
-        game = self.create_game(status=Game.STATUS_STARTED)
-        user = self.get_current_user()
-        game.users.append(user)
-        db.session.add(game)
-        db.session.commit()
-        rv = self.app.post('/games/'+str(game.id)+'/turns/resolve')
-        assert rv.status_code == 403
-
-    def test_resolve_turn_errors_no_card_to_place(self):
-        self.login()
-        user = self.get_current_user()
-        user2 = self.create_user()
-        game = self.create_game(status=Game.STATUS_STARTED)
-        game.users.append(user)
-        game.users.append(user2)
-        game.owner_id = user.id
-        db.session.add(game)
-        db.session.commit()
-        rv = self.app.post('/games/'+str(game.id)+'/turns/resolve')
-        assert rv.status_code == 400
-
-    def test_resolve_turn_errors_user_must_choose_column(self):
-        self.login()
-        user = self.get_current_user()
-        user2 = self.create_user()
-        game = self.create_game(status=Game.STATUS_STARTED)
-        game.users.append(user)
-        game.users.append(user2)
-        game.owner_id = user.id
-        db.session.add(game)
-        db.session.commit()
-        card = self.create_card(1, 1)
-        card2 = self.create_card(2, 2)
-        card3 = self.create_card(3, 3)
-        user_chosen_card = self.create_chosen_card(game.id, user.id, card.id)
-        user2_chosen_card = self.create_chosen_card(game.id, user2.id, card2.id)
-        column = self.create_column(game.id, [card3])
-        rv = self.app.post('/games/'+str(game.id)+'/turns/resolve')
-        assert rv.status_code == 422
-        assert json.loads(rv.data)['user_id'] == user.id
-
     def test_choose_column_for_card(self):
         self.login()
         game = self.create_game(status=Game.STATUS_STARTED)
@@ -361,48 +225,6 @@ class GamesTurnTestCase(unittest.TestCase):
         assert response['chosen_column']['cards'][0]['id'] == card.id
         assert len(response['user_heap']['cards']) == 1
         assert response['user_heap']['cards'][0]['id'] == card2.id
-
-    def test_choose_column_for_card_errors_game_not_found(self):
-        self.login()
-        game = self.create_game(status=Game.STATUS_CREATED)
-        column = self.create_column(game.id)
-        rv = self.app.post('/games/0/columns/'+str(column.id)+'/choose')
-        assert rv.status_code == 404
-
-    def test_choose_column_for_card_errors_game_not_started(self):
-        self.login()
-        game = self.create_game(status=Game.STATUS_CREATED)
-        column = self.create_column(game.id)
-        rv = self.app.post('/games/'+str(game.id)+'/columns/'+str(column.id)+'/choose')
-        assert rv.status_code == 400
-
-    def test_choose_column_for_card_errors_not_in_game(self):
-        self.login()
-        game = self.create_game(status=Game.STATUS_STARTED)
-        column = self.create_column(game.id)
-        rv = self.app.post('/games/'+str(game.id)+'/columns/'+str(column.id)+'/choose')
-        assert rv.status_code == 400
-
-    def test_choose_column_for_card_errors_column_not_found(self):
-        self.login()
-        game = self.create_game(status=Game.STATUS_STARTED)
-        user = self.get_current_user()
-        game.users.append(user)
-        db.session.add(game)
-        db.session.commit()
-        rv = self.app.post('/games/'+str(game.id)+'/columns/0/choose')
-        assert rv.status_code == 404
-
-    def test_choose_column_for_card_errors_no_card_to_place(self):
-        self.login()
-        game = self.create_game(status=Game.STATUS_STARTED)
-        column = self.create_column(game.id)
-        user = self.get_current_user()
-        game.users.append(user)
-        db.session.add(game)
-        db.session.commit()
-        rv = self.app.post('/games/'+str(game.id)+'/columns/'+str(column.id)+'/choose')
-        assert rv.status_code == 400
 
 if __name__ == '__main__':
     unittest.main()

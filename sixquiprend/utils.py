@@ -1,9 +1,9 @@
-import psycopg2
-from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 from passlib.hash import bcrypt
-from sixquiprend.sixquiprend import app, db
-from sixquiprend.models.user import User
+from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 from sixquiprend.models.card import Card
+from sixquiprend.models.user import User
+from sixquiprend.sixquiprend import app, db
+import psycopg2
 
 def create_db():
     try:

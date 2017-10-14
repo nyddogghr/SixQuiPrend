@@ -1,11 +1,18 @@
 from flask import Flask
 from passlib.hash import bcrypt
 from sixquiprend.config import *
-from sixquiprend.models import *
-from sixquiprend.routes import *
+from sixquiprend.models.card import Card
+from sixquiprend.models.chosen_card import ChosenCard
+from sixquiprend.models.column import Column
+from sixquiprend.models.game import Game
+from sixquiprend.models.hand import Hand
+from sixquiprend.models.heap import Heap
+from sixquiprend.models.six_qui_prend_exception import SixQuiPrendException
+from sixquiprend.models.user import User
 from sixquiprend.sixquiprend import app, db
 from sixquiprend.utils import *
 import json
+import random
 import unittest
 
 class UserTestCase(unittest.TestCase):
@@ -31,12 +38,14 @@ class UserTestCase(unittest.TestCase):
         db.session.remove()
         db.drop_all()
 
-    def create_user(self, urole=User.PLAYER_ROLE):
+    def create_user(self, urole=User.PLAYER_ROLE, active=True,
+            authenticated=True):
         username = 'User #'+str(User.query.count())
         password = 'Password'
         user = User(username=username,
                 password=bcrypt.hash(password),
-                active=True,
+                active=active,
+                authenticated=authenticated,
                 urole=urole)
         db.session.add(user)
         db.session.commit()
@@ -55,12 +64,6 @@ class UserTestCase(unittest.TestCase):
         db.session.add(hand)
         db.session.commit()
         return hand
-
-    def create_column(self, game_id):
-        column = Column(game_id=game_id)
-        db.session.add(column)
-        db.session.commit()
-        return column
 
     def create_heap(self, game_id, user_id):
         heap = Heap(game_id=game_id, user_id=user_id)
@@ -83,73 +86,123 @@ class UserTestCase(unittest.TestCase):
         db.session.commit()
         return card
 
-    def test_choose_card_for_game(self):
+    ################################################################################
+    ## Getters
+    ################################################################################
+
+    def test_find(self):
+        user = self.create_user()
+        assert User.find(user.id) == user
+
+    def test_find_errors(self):
+        user = self.create_user()
+        with self.assertRaises(SixQuiPrendException) as e:
+            User.find(-1)
+            assert e.code == 404
+
+    def test_get_game_heap(self):
         user = self.create_user()
         game = self.create_game()
         game.users.append(user)
         game.owner_id = user.id
         db.session.add(game)
         db.session.commit()
-        card = self.create_card(1, 1)
+        heap = self.create_heap(game.id, user.id)
+        assert user.get_game_heap(game.id) == heap
+
+    def test_get_game_hand(self):
+        user = self.create_user()
+        game = self.create_game()
+        game.users.append(user)
+        game.owner_id = user.id
+        db.session.add(game)
+        db.session.commit()
         hand = self.create_hand(game.id, user.id)
-        hand.cards.append(card)
-        db.session.add(hand)
-        db.session.commit()
-        assert len(user.get_game_hand(game.id).cards) == 1
-        chosen_card = user.get_chosen_card(game.id)
-        assert chosen_card == None
-        user.choose_card_for_game(game.id, card.id)
-        assert len(user.get_game_hand(game.id).cards) == 0
-        chosen_card = user.get_chosen_card(game.id)
-        assert chosen_card != None
-        assert chosen_card.card_id == card.id
+        assert user.get_game_hand(game.id) == hand
 
-    def test_choose_card_for_game_errors(self):
+    def test_has_chosen_card(self):
         user = self.create_user()
         game = self.create_game()
         game.users.append(user)
         game.owner_id = user.id
         db.session.add(game)
         db.session.commit()
-        card = self.create_card(1, 1)
-        hand = self.create_hand(game.id, user.id)
-        assert len(user.get_game_hand(game.id).cards) == 0
-        with self.assertRaises(CardNotOwnedException) as e:
-            user.choose_card_for_game(game.id, card.id)
+        card = self.create_card()
+        assert user.has_chosen_card(game.id) == False
+        chosen_card = self.create_chosen_card(game.id, user.id, card.id)
+        assert user.has_chosen_card(game.id) == True
 
-    def test_needs_to_choose_column(self):
+    def test_get_chosen_card(self):
         user = self.create_user()
         game = self.create_game()
         game.users.append(user)
         game.owner_id = user.id
         db.session.add(game)
-        card_one = self.create_card(1, 1)
-        card_two = self.create_card(2, 2)
-        card_three = self.create_card(3, 3)
-        card_four = self.create_card(4, 4)
-        column_one = self.create_column(game.id)
-        column_one.cards.append(card_two)
-        column_two = self.create_column(game.id)
-        column_two.cards.append(card_three)
-        db.session.add(column_one)
-        db.session.add(column_two)
         db.session.commit()
-        assert user.needs_to_choose_column(game.id) == False
-        chosen_card = self.create_chosen_card(game.id, user.id, card_one.id)
-        assert user.needs_to_choose_column(game.id) == True
-        db.session.delete(chosen_card)
-        chosen_card = self.create_chosen_card(game.id, user.id, card_four.id)
-        assert user.needs_to_choose_column(game.id) == False
+        card = self.create_card()
+        chosen_card = self.create_chosen_card(game.id, user.id, card.id)
+        assert user.get_chosen_card(game.id) == chosen_card
 
-    def test_login_statuses(self):
+    ################################################################################
+    ## Actions
+    ################################################################################
+
+    def test_delete(self):
         user = self.create_user()
-        assert user.is_anonymous() == False
-        assert user.is_authenticated() == False
-        user.authenticated = True
-        db.session.add(user)
-        db.session.commit()
-        db.session.refresh(user)
+        User.delete(user.id)
+        with self.assertRaises(SixQuiPrendException) as e:
+            User.find(user.id)
+            assert e.code == 404
+
+    def test_delete_errors(self):
+        with self.assertRaises(SixQuiPrendException) as e:
+            User.delete(-1)
+            assert e.code == 404
+
+    def test_register(self):
+        user = User.register('toto', 'titi')
+        assert User.find(user.id) == user
+
+    def test_register_errors(self):
+        user = self.create_user()
+        with self.assertRaises(SixQuiPrendException) as e:
+            User.register(user.username, 'titi')
+            assert e.code == 400
+
+    def test_login(self):
+        user = User.register('toto', 'titi')
+        assert User.login('toto', 'titi') == user
+
+    def test_login_errors(self):
+        # User is a bot
+        user = self.create_user(urole = User.BOT_ROLE)
+        with self.assertRaises(SixQuiPrendException) as e:
+            User.login(user.username, 'Password')
+            assert e.code == 403
+        # User is not active
+        user = self.create_user(active = False)
+        with self.assertRaises(SixQuiPrendException) as e:
+            User.login(user.username, 'Password')
+            assert e.code == 403
+        # Password is invalid is not active
+        user = self.create_user()
+        with self.assertRaises(SixQuiPrendException) as e:
+            User.login(user.username, 'NotPassword')
+            assert e.code == 400
+
+    def test_logout(self):
+        user = self.create_user(authenticated = True)
         assert user.is_authenticated() == True
+        user.logout()
+        assert user.is_authenticated() == False
+
+    def test_change_active(self):
+        user = self.create_user(active = True)
+        assert user.is_active() == True
+        user.change_active(False)
+        assert user.is_active() == False
+        user.change_active(True)
+        assert user.is_active() == True
 
 if __name__ == '__main__':
     unittest.main()

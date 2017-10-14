@@ -1,4 +1,3 @@
-from sixquiprend.sixquiprend import app, db
 from sixquiprend.models.card import Card
 from sixquiprend.models.chosen_card import ChosenCard
 from sixquiprend.models.column import Column
@@ -6,6 +5,7 @@ from sixquiprend.models.hand import Hand
 from sixquiprend.models.heap import Heap
 from sixquiprend.models.six_qui_prend_exception import SixQuiPrendException
 from sixquiprend.models.user import User
+from sixquiprend.sixquiprend import app, db
 import random
 
 class Game(db.Model):
@@ -23,23 +23,39 @@ class Game(db.Model):
     ## Getters
     ################################################################################
 
-    def get_results(self):
-        results = {}
-        if self.status == Game.STATUS_CREATED:
-            return results
-        for user in self.users.all():
-            user_game_heap = user.get_game_heap(self.id)
-            results[user.username] = user_game_heap.get_value()
-        return results
-
-    def get_user(self, user_id):
-        return self.users.filter(User.id==user_id).first()
+    def find(game_id):
+        game = Game.query.get(game_id)
+        if not game:
+            raise SixQuiPrendException('Game doesn\'t exist', 404)
+        return game
 
     def find_user(self, user_id):
-        user = self.get_user(user_id)
+        user = self.users.filter(User.id==user_id).first()
         if not user:
             raise SixQuiPrendException('User not in game', 404)
         return user
+
+    def get_columns(self):
+        return Column.query.filter(Column.game_id == self.id)
+
+    def find_column(self, column_id):
+        column = self.get_columns().filter(Column.id == column_id).first()
+        if not column:
+            raise SixQuiPrendException('Column not found', 404)
+        return column
+
+    def get_chosen_cards(self):
+        return ChosenCard.query.filter(ChosenCard.game_id == self.id)
+
+    def get_user_hand(self, user_id):
+        user = self.find_user(user_id)
+        hand = user.get_game_hand(self.id)
+        return hand
+
+    def get_user_heap(self, user_id):
+        user = self.find_user(user_id)
+        heap = user.get_game_heap(self.id)
+        return heap
 
     def get_user_status(self, user_id):
         user = self.find_user(user_id)
@@ -48,27 +64,18 @@ class Game(db.Model):
         user_dict['needs_to_choose_column'] = self.user_needs_to_choose_column(user_id)
         return user_dict
 
-    def get_user_heap(self, user_id):
-        user = self.find_user(user_id)
-        heap = user.get_game_heap(self.id)
-        return heap
+    def check_is_owner(self, user_id):
+        if self.owner_id != user_id:
+            raise SixQuiPrendException('User is not game owner', 403)
 
-    def get_user_hand(self, user_id):
-        user = self.find_user(user_id)
-        hand = user.get_game_hand(self.id)
-        return hand
-
-    def get_columns(self):
-        return Column.query.filter(Column.game_id == self.id)
-
-    def find_column(self, column_id):
-        column = self.get_columns.filter(Column.id == column_id).first()
-        if not column:
-            raise SixQuiPrendException('Column not found', 404)
-        return column
-
-    def get_chosen_cards(self):
-        return ChosenCard.query.filter(ChosenCard.game_id == self.id)
+    def get_results(self):
+        results = {}
+        if self.status == Game.STATUS_CREATED:
+            return results
+        for user in self.users.all():
+            user_game_heap = user.get_game_heap(self.id)
+            results[user.username] = user_game_heap.get_value()
+        return results
 
     def get_lowest_value_column(self):
         column_value = 9000
@@ -86,12 +93,12 @@ class Game(db.Model):
         chosen_column = None
         for column in self.get_columns():
             last_card = sorted(column.cards, key=lambda card: card.number)[-1]
-            diff_temp = chosen_card.get_card().number - last_card.number
+            diff_temp = Card.find(chosen_card.card_id).number - last_card.number
             if diff_temp > 0 and diff_temp < diff:
                 chosen_column = column
                 diff = diff_temp
         if chosen_column == None:
-            raise SixQuiPrendException('User ' + chosen_card.user_id + ' must choose a column', 422)
+            raise SixQuiPrendException('User ' + str(chosen_card.user_id) + ' must choose a column', 422)
         return chosen_column
 
     def get_available_bots(self):
@@ -101,16 +108,6 @@ class Game(db.Model):
             if not bot in self.users.all():
                 available_bots.append(bot)
         return available_bots
-
-    def find(game_id):
-        game = Game.query.get(game_id)
-        if not game:
-            raise SixQuiPrendException('Game doesn\'t exist', 404)
-        return game
-
-    def check_is_owner(self, user_id):
-        if self.owner_id != user_id:
-            raise SixQuiPrendException('User is not game owner', 403)
 
     def get_chosen_cards_for_current_user(self, current_user_id):
         user_count = self.users.count()
@@ -133,7 +130,7 @@ class Game(db.Model):
         except SixQuiPrendException:
             lower_chosen_card_count = ChosenCard.query.filter(ChosenCard.game_id == self.id) \
                     .join(Card) \
-                    .filter(Card.number < cc.number) \
+                    .filter(Card.number < Card.find(cc.card_id).number) \
                     .count()
             return lower_chosen_card_count == 0
         return False
@@ -142,37 +139,21 @@ class Game(db.Model):
     ## Actions
     ################################################################################
 
-    def resolve_turn(self):
-        if self.status != Game.STATUS_STARTED:
-            raise SixQuiPrendException('Cannot resolve turn of a non started game', 400)
-        self.resolving_turn = true
-        chosen_card = ChosenCard.query.filter(ChosenCard.game_id == self.id) \
-                .join(Card) \
-                .order_by(Card.number.asc()) \
-                .first()
-        if chosen_card == None:
-            raise SixQuiPrendException('No chosen card to place', 422)
-        try:
-            chosen_column = self.get_suitable_column(chosen_card)
-        except SixQuiPrendException as e:
-            if chosen_card.get_user().urole == User.BOT_ROLE:
-                chosen_column = self.get_lowest_value_column()
-                chosen_column.replace_by_card(chosen_card)
-            else:
-                raise e
-        user_game_heap = chosen_card.get_user().get_game_heap(self.id)
-        if len(chosen_column.cards) == app.config['COLUMN_CARD_SIZE']:
-            user_game_heap.cards += chosen_column.cards
-            db.session.add(user_game_heap)
-            chosen_column.cards = []
-        chosen_column.cards.append(chosen_card.get_card())
-        db.session.add(chosen_column)
-        db.session.delete(chosen_card)
+    def create(user):
+        game = Game(status=Game.STATUS_CREATED)
+        game.users.append(user)
+        game.owner_id = user.id
+        db.session.add(game)
         db.session.commit()
-        self.update_status()
-        return [chosen_column, user_game_heap]
+        return game
 
-    def setup(self):
+    def delete(game_id):
+        game = Game.find(game_id)
+        db.session.delete(game)
+        db.session.commit()
+
+    def setup(self, current_user_id):
+        self.check_is_owner(current_user_id)
         if self.status != Game.STATUS_CREATED:
             raise SixQuiPrendException('Can only start a created game', 400)
         if self.users.count() < 2:
@@ -199,7 +180,86 @@ class Game(db.Model):
         db.session.add(self)
         db.session.commit()
 
-    def choose_cards_for_bots(self):
+    def add_user(self, user):
+        if self.status != Game.STATUS_CREATED:
+            raise SixQuiPrendException('Cannot enter an already started game', 400)
+        if self.users.count() == app.config['MAX_PLAYER_NUMBER']:
+            max_number = str(app.config['MAX_PLAYER_NUMBER'])
+            error = 'Game has already ' + max_number + ' players'
+            raise SixQuiPrendException(error, 400)
+        if user in self.users.all():
+            raise SixQuiPrendException('Cannot enter twice in a game', 400)
+        self.users.append(user)
+        db.session.add(self)
+        db.session.commit()
+        return self
+
+    def add_bot(self, bot_id, current_user_id):
+        self.check_is_owner(current_user_id)
+        bot = User.find(bot_id)
+        if bot.get_urole() != User.BOT_ROLE:
+            raise SixQuiPrendException('Can only add a bot', 400)
+        self.add_user(bot)
+        self.users.append(bot)
+        db.session.add(self)
+        db.session.commit()
+        return self
+
+    def remove_user(self, user):
+        if user not in self.users.all():
+            return jsonify(error='Not in game'), 400
+        if user.is_game_owner(self):
+            self.remove_owner(user.id)
+        self.users.remove(user)
+        db.session.add(self)
+        db.session.commit()
+        return game
+
+    def remove_owner(self, user_id):
+        if self.owner_id != user_id:
+            raise SixQuiPrendException('User is not game owner', 400)
+        new_owner = self.users.filter(User.id != user_id,
+                User.urole != User.BOT_ROLE).first()
+        if not new_owner:
+            raise SixQuiPrendException('There is no other non-bot player', 400)
+        else:
+            self.owner_id = new_owner.id
+            db.session.add(self)
+            db.session.commit()
+
+    def resolve_turn(self, current_user_id):
+        self.check_is_owner(current_user_id)
+        if self.status != Game.STATUS_STARTED:
+            raise SixQuiPrendException('Cannot resolve turn of a non started game', 400)
+        self.resolving_turn = true
+        chosen_card = ChosenCard.query.filter(ChosenCard.game_id == self.id) \
+                .join(Card) \
+                .order_by(Card.number.asc()) \
+                .first()
+        if chosen_card == None:
+            raise SixQuiPrendException('No chosen card to place', 422)
+        try:
+            chosen_column = self.get_suitable_column(chosen_card)
+        except SixQuiPrendException as e:
+            if chosen_card.get_user().urole == User.BOT_ROLE:
+                chosen_column = self.get_lowest_value_column()
+                chosen_column.replace_by_card(chosen_card)
+            else:
+                raise e
+        user_game_heap = chosen_card.get_user().get_game_heap(self.id)
+        if len(chosen_column.cards) == app.config['COLUMN_CARD_SIZE']:
+            user_game_heap.cards += chosen_column.cards
+            db.session.add(user_game_heap)
+            chosen_column.cards = []
+        chosen_column.cards.append(Card.find(chosen_card.card_id))
+        db.session.add(chosen_column)
+        db.session.delete(chosen_card)
+        db.session.commit()
+        self.update_status()
+        return [chosen_column, user_game_heap]
+
+    def choose_cards_for_bots(self, current_user_id):
+        self.check_is_owner(current_user_id)
         if self.status != Game.STATUS_STARTED:
             raise SixQuiPrendException('Cannot choose cards for bots of a non started game', 400)
         if self.resolving_turn == True:
@@ -261,64 +321,6 @@ class Game(db.Model):
             self.resolving_turn = False
             self.bots_have_chosen_cards = False
         db.session.add(self)
-        db.session.commit()
-
-    def remove_owner(self, user_id):
-        if self.owner_id != user_id:
-            raise SixQuiPrendException('User is not game owner', 400)
-        new_owner = self.users.filter(User.id != user_id,
-                User.urole != User.BOT_ROLE).first()
-        if not new_owner:
-            raise SixQuiPrendException('There is no other non-bot player', 400)
-        else:
-            self.owner_id = new_owner.id
-            db.session.add(self)
-            db.session.commit()
-
-    def add_user(self, user):
-        if self.status != Game.STATUS_CREATED:
-            raise SixQuiPrendException('Cannot enter an already started game', 400)
-        if self.users.count() == app.config['MAX_PLAYER_NUMBER']:
-            max_number = str(app.config['MAX_PLAYER_NUMBER'])
-            error = 'Game has already ' + max_number + ' players'
-            raise SixQuiPrendException(error, 400)
-        if user in self.users.all():
-            raise SixQuiPrendException('Cannot enter twice in a game', 400)
-        self.users.append(user)
-        db.session.add(self)
-        db.session.commit()
-        return self
-
-    def add_bot(self, bot_id):
-        bot = User.find(bot_id)
-        if bot.get_urole() != User.BOT_ROLE:
-            raise SixQuiPrendException('Can only add a bot', 400)
-        self.add_user(bot)
-        self.users.append(bot)
-        db.session.add(self)
-        db.session.commit()
-        return self
-
-    def create(user):
-        game = Game(status=Game.STATUS_CREATED)
-        game.users.append(user)
-        game.owner_id = user.id
-        db.session.add(game)
-        db.session.commit()
-        return game
-
-    def remove_user(self, user):
-        if user not in self.users.all():
-            return jsonify(error='Not in game'), 400
-        if user.is_game_owner(self):
-            self.remove_owner(user.id)
-        self.users.remove(user)
-        db.session.add(self)
-        db.session.commit()
-        return game
-
-    def delete(self):
-        db.session.delete(self)
         db.session.commit()
 
     ################################################################################

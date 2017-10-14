@@ -1,7 +1,8 @@
 from flask import session, jsonify
-from sixquiprend.sixquiprend import app, admin_required
 from flask_login import login_required, current_user
 from sixquiprend.models.game import Game
+from sixquiprend.models.user import User
+from sixquiprend.sixquiprend import app, admin_required
 
 @app.route('/games/<int:game_id>/columns')
 @login_required

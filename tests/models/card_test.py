@@ -1,14 +1,14 @@
 from flask import Flask
 from passlib.hash import bcrypt
 from sixquiprend.config import *
-from sixquiprend.models import *
-from sixquiprend.routes import *
+from sixquiprend.models.card import Card
 from sixquiprend.sixquiprend import app, db
 from sixquiprend.utils import *
 import json
+import random
 import unittest
 
-class ChosenCardTestCase(unittest.TestCase):
+class CardTestCase(unittest.TestCase):
 
     USERNAME = 'User'
     PASSWORD = 'Password'
@@ -31,31 +31,6 @@ class ChosenCardTestCase(unittest.TestCase):
         db.session.remove()
         db.drop_all()
 
-    def create_user(self, urole=User.PLAYER_ROLE):
-        username = 'User #'+str(User.query.count())
-        password = 'Password'
-        user = User(username=username,
-                password=bcrypt.hash(password),
-                active=True,
-                urole=urole)
-        db.session.add(user)
-        db.session.commit()
-        return user
-
-    def create_game(self, status=Game.STATUS_STARTED):
-        game = Game(status=status)
-        db.session.add(game)
-        db.session.commit()
-        return game
-
-    def create_chosen_card(self, game_id, user_id, card_id):
-        chosen_card = ChosenCard(game_id=game_id,
-                user_id=user_id,
-                card_id=card_id)
-        db.session.add(chosen_card)
-        db.session.commit()
-        return chosen_card
-
     def create_card(self, number=random.randint(1, 1000),
             cow_value=random.randint(1, 1000)):
         card = Card(number=number, cow_value=cow_value)
@@ -63,12 +38,18 @@ class ChosenCardTestCase(unittest.TestCase):
         db.session.commit()
         return card
 
-    def test_get_user(self):
-        user = self.create_user()
-        game = self.create_game()
-        card_one = self.create_card(1, 1)
-        chosen_card = self.create_chosen_card(game.id, user.id, card_one.id)
-        assert chosen_card.get_user() == user
+    ################################################################################
+    ## Getters
+    ################################################################################
+
+    def test_find(self):
+        card = self.create_card(1, 1)
+        assert Card.find(card.id) == card
+
+    def test_find_errors(self):
+        with self.assertRaises(SixQuiPrendException) as e:
+            Card.find(-1)
+            assert e.code == 404
 
 if __name__ == '__main__':
     unittest.main()
