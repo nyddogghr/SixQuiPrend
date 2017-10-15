@@ -74,8 +74,12 @@ class GamesTurnTestCase(unittest.TestCase):
         db.session.commit()
         return user
 
-    def create_game(self, status=Game.STATUS_CREATED):
+    def create_game(self, status=Game.STATUS_CREATED, users = [], owner_id =
+            None):
         game = Game(status=status)
+        for user in users:
+            game.users.append(user)
+        game.owner_id = owner_id
         db.session.add(game)
         db.session.commit()
         return game
@@ -128,10 +132,7 @@ class GamesTurnTestCase(unittest.TestCase):
     def test_choose_card_for_game(self):
         self.login()
         user = self.get_current_user()
-        game = self.create_game(status=Game.STATUS_STARTED)
-        game.users.append(user)
-        db.session.add(game)
-        db.session.commit()
+        game = self.create_game(status = Game.STATUS_STARTED, users = [user])
         card = self.create_card()
         hand = self.create_hand(game_id=game.id, user_id=user.id, cards=[card])
         rv = self.app.post('/games/'+str(game.id)+'/card/'+str(card.id))
@@ -143,19 +144,16 @@ class GamesTurnTestCase(unittest.TestCase):
 
     def test_choose_card_for_bots(self):
         self.login()
+        card = self.create_card(1, 1)
+        bot = self.create_user(urole=User.BOT_ROLE)
         user = self.get_current_user()
-        game = self.create_game(status=Game.STATUS_STARTED)
-        game.users.append(user)
-        db.session.add(game)
-        db.session.commit()
+        game = self.create_game(status = Game.STATUS_STARTED, users = [user,
+            bot], owner_id = user.id)
         card = self.create_card()
-        hand = self.create_hand(game_id=game.id, user_id=user.id, cards=[card])
-        rv = self.app.post('/games/'+str(game.id)+'/card/'+str(card.id))
+        bot_hand = self.create_hand(game.id, bot.id, [card])
+        rv = self.app.post('/games/'+str(game.id)+'/bots/choose_cards')
         assert rv.status_code == 201
-        response_chosen_card = json.loads(rv.data)['chosen_card']
-        assert response_chosen_card['game_id'] == game.id
-        assert response_chosen_card['user_id'] == user.id
-        assert response_chosen_card['card']['id'] == card.id
+        assert bot_hand.cards == []
 
     def test_resolve_turn(self):
         self.login()

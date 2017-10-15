@@ -200,6 +200,16 @@ class UsersTestCase(unittest.TestCase):
         db.session.refresh(user)
         assert user.active == True
 
+    def test_deactivate_users(self):
+        user = self.create_user(True)
+        self.login_admin()
+        db.session.refresh(user)
+        assert user.active == True
+        rv = self.app.put('/users/'+str(user.id)+'/deactivate')
+        assert rv.status_code == 200
+        db.session.refresh(user)
+        assert user.active == False
+
     def test_delete_users(self):
         user = self.create_user()
         self.login_admin()

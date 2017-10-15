@@ -353,6 +353,13 @@ class GameTestCase(unittest.TestCase):
         with self.assertRaises(SixQuiPrendException) as e:
             game.setup(user.id)
             assert e.code == 400
+        # Game is not CREATED
+        user = self.create_user()
+        game = self.create_game(Game.STATUS_STARTED, users = [user], owner_id =
+                user.id)
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.setup(user.id)
+            assert e.code == 400
         # Not enough users
         game = self.create_game(Game.STATUS_CREATED, users = [user], owner_id =
                 user.id)
@@ -403,7 +410,7 @@ class GameTestCase(unittest.TestCase):
         game = self.create_game(status = Game.STATUS_CREATED, owner_id =
                 user.id)
         with self.assertRaises(SixQuiPrendException) as e:
-            game.add_bot(not_bot.id, user)
+            game.add_bot(not_bot.id, user.id)
             assert e.code == 400
 
     def test_remove_user(self):
@@ -580,7 +587,7 @@ class GameTestCase(unittest.TestCase):
         # Turn is being resolved
         user = self.create_user()
         card = self.create_card(1, 1)
-        game = self.create_game()
+        game = self.create_game(users = [user])
         game.resolving_turn = True
         db.session.add(game)
         db.session.commit()

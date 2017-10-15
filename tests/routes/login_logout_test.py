@@ -136,5 +136,17 @@ class LoginLogoutTestCase(unittest.TestCase):
                 password == password).first()
         assert new_user != None
 
+    def test_register_errors_deactivated(self):
+        allow_register_users = app.config['ALLOW_REGISTER_USERS']
+        app.config['ALLOW_REGISTER_USERS'] = False
+        username = 'toto'
+        password = 'toto'
+        rv = self.app.post('/users/register', data=json.dumps(dict(
+            username=username,
+            password=password,
+        )), content_type='application/json')
+        assert rv.status_code == 403
+        app.config['ALLOW_REGISTER_USERS'] = allow_register_users
+
 if __name__ == '__main__':
     unittest.main()

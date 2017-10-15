@@ -16,7 +16,7 @@ def choose_card_for_game(game_id, card_id):
 def choose_cards_for_bots(game_id):
     """Choose cards for bots"""
     game = Game.find(game_id)
-    game.choose_cards_for_bots()
+    game.choose_cards_for_bots(current_user.id)
     return jsonify(), 201
 
 @app.route('/games/<int:game_id>/turns/resolve', methods=['POST'])
