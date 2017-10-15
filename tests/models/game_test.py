@@ -49,10 +49,11 @@ class GameTestCase(unittest.TestCase):
         db.session.commit()
         return user
 
-    def create_game(self, status=Game.STATUS_STARTED, users=[]):
+    def create_game(self, status=Game.STATUS_STARTED, users=[], owner_id=None):
         game = Game(status=status)
         for user in users:
             game.users.append(user)
+        game.owner_id = owner_id
         db.session.add(game)
         db.session.commit()
         return game
@@ -79,7 +80,9 @@ class GameTestCase(unittest.TestCase):
         db.session.commit()
         return heap
 
-    def create_chosen_card(self, game_id, user_id, card_id):
+    def create_chosen_card(self, game_id, user_id, card_id=None):
+        if card_id == None:
+            card_id = self.create_card().id
         chosen_card = ChosenCard(game_id=game_id,
                 user_id=user_id,
                 card_id=card_id)
@@ -103,6 +106,7 @@ class GameTestCase(unittest.TestCase):
         assert Game.find(game.id) == game
 
     def test_find_errors(self):
+        # Game not found
         with self.assertRaises(SixQuiPrendException) as e:
             Game.find(-1)
             assert e.code == 404
@@ -113,6 +117,7 @@ class GameTestCase(unittest.TestCase):
         assert game.find_user(user.id) == user
 
     def test_find_user_errors(self):
+        # User not in game
         user = self.create_user()
         game = self.create_game(users=[user])
         with self.assertRaises(SixQuiPrendException) as e:
@@ -125,10 +130,26 @@ class GameTestCase(unittest.TestCase):
         assert game.find_column(column.id)
 
     def test_get_find_column_errors(self):
+        # Column not in game
         game = self.create_game()
         column = self.create_column(game.id)
         with self.assertRaises(SixQuiPrendException) as e:
             game.find_column(-1)
+            assert e.code == 404
+
+    def test_get_find_chosen_card(self):
+        user = self.create_user()
+        game = self.create_game()
+        chosen_card = self.create_chosen_card(game.id, user.id)
+        assert game.find_chosen_card(chosen_card.id)
+
+    def test_get_find_chosen_card_errors(self):
+        # Chosen card not in game
+        user = self.create_user()
+        game = self.create_game()
+        chosen_card = self.create_chosen_card(game.id, user.id)
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.find_chosen_card(-1)
             assert e.code == 404
 
     def test_get_user_status(self):
@@ -137,13 +158,24 @@ class GameTestCase(unittest.TestCase):
         assert game.get_user_status(user.id)['has_chosen_card'] == False
         assert game.get_user_status(user.id)['needs_to_choose_column'] == False
 
+    def test_check_is_started(self):
+        game = self.create_game(status = Game.STATUS_STARTED)
+        game.check_is_started()
+
+    def test_check_is_started_errors(self):
+        # Game not started
+        game = self.create_game(status = Game.STATUS_CREATED)
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.check_is_started()
+            assert e.code == 400
+
     def test_check_is_owner(self):
         user = self.create_user()
-        game = self.create_game()
-        game.owner_id = user.id
+        game = self.create_game(owner_id = user.id)
         game.check_is_owner(user.id)
 
     def test_check_is_owner_errors(self):
+        # User not owner
         user = self.create_user()
         game = self.create_game()
         with self.assertRaises(SixQuiPrendException) as e:
@@ -224,252 +256,397 @@ class GameTestCase(unittest.TestCase):
         suitable_column = game.get_suitable_column(chosen_card)
         assert suitable_column == column_two
 
+    def test_get_available_bots(self):
+        bot1 = self.create_user(urole = User.BOT_ROLE)
+        bot2 = self.create_user(urole = User.BOT_ROLE)
+        game = self.create_game(users = [bot1])
+        assert game.get_available_bots() == [bot2]
+
+    def test_get_chosen_cards_for_current_user(self):
+        user1 = self.create_user()
+        user2 = self.create_user()
+        game = self.create_game(users = [user1, user2])
+        chosen_card1 = self.create_chosen_card(game.id, user1.id)
+        chosen_cards = game.get_chosen_cards_for_current_user(user1.id)
+        assert chosen_cards == [chosen_card1]
+        chosen_card2 = self.create_chosen_card(game.id, user2.id)
+        chosen_cards = game.get_chosen_cards_for_current_user(user1.id)
+        assert chosen_cards == [chosen_card1, chosen_card2]
+        game.resolving_turn = True
+        db.session.add(game)
+        db.session.commit()
+        db.session.delete(chosen_card1)
+        chosen_cards = game.get_chosen_cards_for_current_user(user1.id)
+        assert chosen_cards == [chosen_card2]
+
+    def test_get_chosen_cards_for_current_user_errors(self):
+        # User has no chosen card and turn is not being resolved
+        user1 = self.create_user()
+        user2 = self.create_user()
+        game = self.create_game(users = [user1, user2])
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.get_chosen_cards_for_current_user(user1.id)
+            assert e.code == 400
+
     def test_user_needs_to_choose_column(self):
-        user = self.create_user()
-        game = self.create_game(users=[user])
+        user1 = self.create_user()
+        user2 = self.create_user()
+        game = self.create_game(users=[user1, user2])
         card_one = self.create_card(1, 1)
         card_two = self.create_card(2, 2)
         card_three = self.create_card(3, 3)
         card_four = self.create_card(4, 4)
-        column_one = self.create_column(game.id, cards=[card_two])
-        column_two = self.create_column(game.id, cards=[card_three])
-        assert game.user_needs_to_choose_column(user.id) == False
-        chosen_card = self.create_chosen_card(game.id, user.id, card_one.id)
-        assert game.user_needs_to_choose_column(user.id) == True
-        db.session.delete(chosen_card)
-        chosen_card = self.create_chosen_card(game.id, user.id, card_four.id)
-        assert game.user_needs_to_choose_column(user.id) == False
+        card_five = self.create_card(5, 5)
+        column_one = self.create_column(game.id, cards=[card_three])
+        column_two = self.create_column(game.id, cards=[card_four])
+        assert game.user_needs_to_choose_column(user1.id) == False
+        assert game.user_needs_to_choose_column(user2.id) == False
+        chosen_card1 = self.create_chosen_card(game.id, user1.id, card_two.id)
+        assert game.user_needs_to_choose_column(user1.id) == True
+        assert game.user_needs_to_choose_column(user2.id) == False
+        chosen_card2 = self.create_chosen_card(game.id, user2.id, card_one.id)
+        assert game.user_needs_to_choose_column(user1.id) == False
+        assert game.user_needs_to_choose_column(user2.id) == True
+        db.session.delete(chosen_card2)
+        chosen_card2 = self.create_chosen_card(game.id, user2.id, card_five.id)
+        assert game.user_needs_to_choose_column(user1.id) == True
+        assert game.user_needs_to_choose_column(user2.id) == False
 
     ################################################################################
     ## Actions
     ################################################################################
 
-    # def test_setup_game(self):
-        # populate_db()
-        # user = self.create_user()
-        # game = self.create_game(Game.STATUS_CREATED)
-        # game.users.append(user)
-        # game.owner_id = user.id
-        # bots = User.query.filter(User.urole == User.BOT_ROLE).all()
-        # for bot in bots:
-            # game.users.append(bot)
-        # db.session.add(game)
-        # db.session.commit()
-        # game.setup_game()
-        # assert game.status == Game.STATUS_STARTED
-        # assert len(user.get_game_hand(game.id).cards) == app.config['HAND_SIZE']
-        # assert len(user.get_game_heap(game.id).cards) == 0
+    def test_create(self):
+        user = self.create_user()
+        game = Game.create(user)
+        assert game.users.all() == [user]
+        assert game.owner_id == user.id
+        assert game.status == Game.STATUS_CREATED
 
-    # def test_remove_owner(self):
-        # user1 = self.create_user()
-        # user2 = self.create_user()
-        # bot = self.create_user(urole=User.BOT_ROLE)
-        # game = self.create_game()
-        # game.users.append(user1)
-        # game.owner_id = user1.id
-        # game.owner_id = user1.id
-        # db.session.add(game)
-        # db.session.commit()
-        # with self.assertRaises(UserNotOwnerException) as e:
-            # game.remove_owner(user2.id)
-        # with self.assertRaises(CannotRemoveOwnerException) as e:
-            # game.remove_owner(user1.id)
-        # game.users.append(bot)
+    def test_delete(self):
+        game = self.create_game()
+        Game.delete(game.id)
+        with self.assertRaises(SixQuiPrendException) as e:
+            Game.find(game.id)
+            assert e.code == 404
 
-    # def test_resolve_turn_auto_bot(self):
-        # user = self.create_user()
-        # bot = self.create_user(User.BOT_ROLE)
-        # game = self.create_game()
-        # game.users.append(bot)
-        # game.owner_id = bot.id
-        # game.users.append(user)
-        # db.session.add(game)
-        # card_one = self.create_card(1, 1)
-        # card_two = self.create_card(2, 2)
-        # card_three = self.create_card(3, 3)
-        # card_four = self.create_card(4, 4)
-        # column_one = self.create_column(game.id)
-        # column_one.cards.append(card_two)
-        # column_two = self.create_column(game.id)
-        # column_two.cards.append(card_three)
-        # db.session.add(column_one)
-        # db.session.add(column_two)
-        # db.session.commit()
-        # bot_heap = self.create_heap(game.id, bot.id)
-        # bot_hand = self.create_hand(game.id, bot.id)
-        # user_heap = self.create_heap(game.id, user.id)
-        # user_hand = self.create_hand(game.id, user.id)
-        # bot_chosen_card = self.create_chosen_card(game.id, bot.id,
-                # card_one.id)
-        # user_chosen_card = self.create_chosen_card(game.id, user.id,
-                # card_four.id)
-        # assert len(bot_heap.cards) == 0
-        # [suitable_column, new_bot_heap] = game.resolve_turn()
-        # assert suitable_column == column_one
-        # assert new_bot_heap.user_id == bot.id
-        # assert len(new_bot_heap.cards) == 1
-        # assert new_bot_heap.cards[0] == card_two
-        # assert bot.has_chosen_card(game.id) == False
+    def test_setup_game(self):
+        populate_db()
+        user = self.create_user()
+        users = [user]
+        bots = User.query.filter(User.urole == User.BOT_ROLE).all()
+        for bot in bots:
+            users.append(bot)
+        game = self.create_game(Game.STATUS_CREATED, users = users, owner_id =
+                user.id)
+        game.setup(user.id)
+        assert game.status == Game.STATUS_STARTED
+        assert game.get_columns().count() == app.config['BOARD_SIZE']
+        for column in game.get_columns():
+            assert len(column.cards) == 1
+        assert len(user.get_game_hand(game.id).cards) == app.config['HAND_SIZE']
+        assert len(user.get_game_heap(game.id).cards) == 0
 
-    # def test_resolve_turn_error_user(self):
-        # user = self.create_user()
-        # user2 = self.create_user()
-        # game = self.create_game()
-        # game.users.append(user2)
-        # game.owner_id = user2.id
-        # game.users.append(user)
-        # db.session.add(game)
-        # card_one = self.create_card(1, 1)
-        # card_two = self.create_card(2, 2)
-        # card_three = self.create_card(3, 3)
-        # card_four = self.create_card(4, 4)
-        # column_one = self.create_column(game.id)
-        # column_one.cards.append(card_two)
-        # column_two = self.create_column(game.id)
-        # column_two.cards.append(card_three)
-        # db.session.add(column_one)
-        # db.session.add(column_two)
-        # db.session.commit()
-        # user2_heap = self.create_heap(game.id, user2.id)
-        # user2_hand = self.create_hand(game.id, user2.id)
-        # user_heap = self.create_heap(game.id, user.id)
-        # user_hand = self.create_hand(game.id, user.id)
-        # user2_chosen_card = self.create_chosen_card(game.id, user2.id,
-                # card_one.id)
-        # user_chosen_card = self.create_chosen_card(game.id, user.id,
-                # card_four.id)
-        # assert len(user2_heap.cards) == 0
-        # with self.assertRaises(NoSuitableColumnException) as e:
-            # [suitable_column, new_user2_heap] = game.resolve_turn()
-        # assert e.exception.args[0] == user2.id
+    def test_setup_game_errors(self):
+        # User is not owner
+        user = self.create_user()
+        game = self.create_game(Game.STATUS_CREATED, users = [user])
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.setup(user.id)
+            assert e.code == 400
+        # Not enough users
+        game = self.create_game(Game.STATUS_CREATED, users = [user], owner_id =
+                user.id)
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.setup(user.id)
+            assert e.code == 400
 
-    # def test_resolve_turn_user_complete_column(self):
-        # column_card_size = app.config['COLUMN_CARD_SIZE']
-        # app.config['COLUMN_CARD_SIZE'] = 1
-        # user = self.create_user()
-        # bot = self.create_user(User.BOT_ROLE)
-        # game = self.create_game()
-        # game.users.append(bot)
-        # game.owner_id = bot.id
-        # game.users.append(user)
-        # db.session.add(game)
-        # card_one = self.create_card(1, 1)
-        # card_two = self.create_card(2, 2)
-        # card_three = self.create_card(3, 3)
-        # card_four = self.create_card(4, 4)
-        # column_one = self.create_column(game.id)
-        # column_one.cards.append(card_one)
-        # column_two = self.create_column(game.id)
-        # column_two.cards.append(card_two)
-        # db.session.add(column_one)
-        # db.session.add(column_two)
-        # db.session.commit()
-        # bot_heap = self.create_heap(game.id, bot.id)
-        # bot_hand = self.create_hand(game.id, bot.id)
-        # user_heap = self.create_heap(game.id, user.id)
-        # user_hand = self.create_hand(game.id, user.id)
-        # user_chosen_card = self.create_chosen_card(game.id, user.id,
-                # card_three.id)
-        # bot_chosen_card = self.create_chosen_card(game.id, bot.id,
-                # card_four.id)
-        # assert len(user_heap.cards) == 0
-        # [suitable_column, new_user_heap] = game.resolve_turn()
-        # assert suitable_column == column_two
-        # assert new_user_heap.user_id == user.id
-        # assert len(new_user_heap.cards) == 1
-        # assert new_user_heap.cards[0] == card_two
-        # assert user.has_chosen_card(game.id) == False
-        # app.config['COLUMN_CARD_SIZE'] = column_card_size
+    def test_add_user(self):
+        user = self.create_user()
+        game = self.create_game(Game.STATUS_CREATED)
+        assert game.users.count() == 0
+        game.add_user(user)
+        assert game.users.all() == [user]
 
-    # def test_choose_cards_for_bots(self):
-        # game = self.create_game()
-        # card = self.create_card(1, 1)
-        # card2 = self.create_card(2, 2)
-        # card3 = self.create_card(3, 3)
-        # card4 = self.create_card(4, 4)
-        # user = self.create_user()
-        # bot1 = self.create_user(urole=User.BOT_ROLE)
-        # bot2 = self.create_user(urole=User.BOT_ROLE)
-        # user_hand = self.create_hand(game.id, user.id, [card])
-        # bot1_hand = self.create_hand(game.id, bot1.id, [card2])
-        # bot2_hand = self.create_hand(game.id, bot2.id, [card3])
-        # game.users.append(user)
-        # game.users.append(bot1)
-        # game.users.append(bot2)
-        # db.session.add(game)
-        # db.session.commit()
-        # bot2_chosen_card = self.create_chosen_card(game.id, bot2.id, card3.id)
-        # game.choose_cards_for_bots()
-        # assert user.has_chosen_card(game.id) == False
-        # bot1_chosen_card = bot1.get_chosen_card(game.id)
-        # assert bot1_chosen_card != None
-        # assert bot1_chosen_card.card_id == card2.id
-        # assert len(bot1.get_game_hand(game.id).cards) == 0
-        # assert bot2.get_game_hand(game.id).cards == [card3]
+    def test_add_user_errors(self):
+        # Game not CREATED
+        user = self.create_user()
+        game = self.create_game(status = Game.STATUS_STARTED)
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.add_user(user)
+            assert e.code == 400
+        # Max number of users reached
+        game = self.create_game(Game.STATUS_CREATED)
+        for i in range(app.config['MAX_PLAYER_NUMBER']):
+            game.add_user(self.create_user())
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.add_user(user)
+            assert e.code == 400
+        # Already in game
+        game = self.create_game(Game.STATUS_CREATED, users = [user])
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.add_user(user)
+            assert e.code == 400
 
-    # def test_update_status(self):
-        # user = self.create_user()
-        # user2 = self.create_user()
-        # game = self.create_game(status=Game.STATUS_STARTED)
-        # game.users.append(user)
-        # game.users.append(user2)
-        # game.owner_id = user.id
-        # db.session.add(game)
-        # db.session.commit()
-        # card = self.create_card()
-        # hand = self.create_hand(game.id, user.id)
-        # hand2 = self.create_hand(game.id, user2.id, [card])
-        # game.check_status()
-        # assert game.status == Game.STATUS_STARTED
-        # hand2.cards = []
-        # db.session.add(hand2)
-        # db.session.commit()
-        # game.check_status()
-        # assert game.status == Game.STATUS_FINISHED
-        # db.session.add(game)
-        # db.session.commit()
-        # with self.assertRaises(CannotRemoveOwnerException) as e:
-            # game.remove_owner(user1.id)
-        # game.users.append(user2)
-        # db.session.add(game)
-        # db.session.commit()
-        # game.remove_owner(user1.id)
-        # db.session.refresh(game)
-        # assert game.owner_id == user2.id
+    def test_add_bot(self):
+        bot = self.create_user(urole = User.BOT_ROLE)
+        user = self.create_user()
+        game = self.create_game(status = Game.STATUS_CREATED, owner_id =
+                user.id)
+        assert game.users.count() == 0
+        game.add_bot(bot.id, user.id)
+        assert game.users.all() == [bot]
 
-    # def test_choose_card_for_user(self):
-        # user = self.create_user()
-        # game = self.create_game()
-        # game.users.append(user)
-        # game.owner_id = user.id
-        # db.session.add(game)
-        # db.session.commit()
-        # card = self.create_card(1, 1)
-        # hand = self.create_hand(game.id, user.id)
-        # hand.cards.append(card)
-        # db.session.add(hand)
-        # db.session.commit()
-        # assert len(user.get_game_hand(game.id).cards) == 1
-        # chosen_card = user.get_chosen_card(game.id)
-        # assert chosen_card == None
-        # user.choose_card_for_game(game.id, card.id)
-        # assert len(user.get_game_hand(game.id).cards) == 0
-        # chosen_card = user.get_chosen_card(game.id)
-        # assert chosen_card != None
-        # assert chosen_card.card_id == card.id
+    def test_add_bot_errors(self):
+        # User not a bot
+        not_bot = self.create_user(urole = User.PLAYER_ROLE)
+        user = self.create_user()
+        game = self.create_game(status = Game.STATUS_CREATED, owner_id =
+                user.id)
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.add_bot(not_bot.id, user)
+            assert e.code == 400
 
-    # def test_choose_card_for_user_errors(self):
-        # user = self.create_user()
-        # game = self.create_game()
-        # game.users.append(user)
-        # game.owner_id = user.id
-        # db.session.add(game)
-        # db.session.commit()
-        # card = self.create_card(1, 1)
-        # hand = self.create_hand(game.id, user.id)
-        # assert len(user.get_game_hand(game.id).cards) == 0
-        # with self.assertRaises(CardNotOwnedException) as e:
-            # user.choose_card_for_game(game.id, card.id)
+    def test_remove_user(self):
+        user1 = self.create_user()
+        user2 = self.create_user()
+        game = self.create_game(users = [user1, user2])
+        assert game.users.count() == 2
+        game.remove_user(user1)
+        assert game.users.all() == [user2]
+
+    def test_remove_user_errors(self):
+        # User not in game
+        user1 = self.create_user()
+        user2 = self.create_user()
+        game = self.create_game(users = [user1])
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.remove_user(user2)
+            assert e.code == 400
+
+    def test_remove_owner(self):
+        user1 = self.create_user()
+        user2 = self.create_user()
+        game = self.create_game(users = [user1, user2], owner_id = user1.id)
+        game.remove_owner(user1.id)
+        assert game.owner_id == user2.id
+
+    def test_remove_owner_errors(self):
+        # User not owner
+        user1 = self.create_user()
+        user2 = self.create_user()
+        game = self.create_game(users = [user1, user2], owner_id = user1.id)
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.remove_owner(user2.id)
+            assert e.code == 400
+        # No other non bot player
+        user = self.create_user()
+        bot = self.create_user(urole = User.BOT_ROLE)
+        game = self.create_game(users = [user, bot], owner_id = user.id)
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.remove_owner(user.id)
+            assert e.code == 400
+
+    def test_resolve_turn(self):
+        column_card_size = app.config['COLUMN_CARD_SIZE']
+        app.config['COLUMN_CARD_SIZE'] = 2
+        user = self.create_user()
+        bot = self.create_user(User.BOT_ROLE)
+        game = self.create_game(users = [user, bot], owner_id = user.id)
+        card_one = self.create_card(1, 1)
+        card_two = self.create_card(2, 2)
+        card_three = self.create_card(3, 3)
+        card_four = self.create_card(4, 4)
+        card_five = self.create_card(5, 5)
+        column_one = self.create_column(game.id, cards = [card_two])
+        column_two = self.create_column(game.id, cards = [card_three, card_four])
+        bot_heap = self.create_heap(game.id, bot.id)
+        bot_hand = self.create_hand(game.id, bot.id)
+        user_heap = self.create_heap(game.id, user.id)
+        user_hand = self.create_hand(game.id, user.id)
+        bot_chosen_card = self.create_chosen_card(game.id, bot.id,
+                card_one.id)
+        user_chosen_card = self.create_chosen_card(game.id, user.id,
+                card_five.id)
+        # Bot auto resolve
+        assert len(bot_heap.cards) == 0
+        [suitable_column, new_bot_heap] = game.resolve_turn(user.id)
+        assert suitable_column == column_one
+        assert new_bot_heap.user_id == bot.id
+        assert len(new_bot_heap.cards) == 1
+        assert new_bot_heap.cards[0] == card_two
+        assert bot.has_chosen_card(game.id) == False
+        assert game.resolving_turn == True
+        # User completes a column
+        assert len(user_heap.cards) == 0
+        [suitable_column, new_user_heap] = game.resolve_turn(user.id)
+        assert suitable_column == column_two
+        assert new_user_heap.user_id == user.id
+        assert len(new_user_heap.cards) == 2
+        assert new_user_heap.cards == [card_three, card_four]
+        assert user.has_chosen_card(game.id) == False
+        assert game.resolving_turn == False
+        assert game.status == Game.STATUS_FINISHED
+        app.config['COLUMN_CARD_SIZE'] = column_card_size
+
+    def test_resolve_turn_errors(self):
+        # No chosen card to place
+        user1 = self.create_user()
+        user2 = self.create_user()
+        game = self.create_game(users = [user1, user2], owner_id = user1.id)
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.resolve_turn(user1.id)
+            assert e.code == 422
+        # No suitable column
+        card_one = self.create_card(1, 1)
+        card_two = self.create_card(2, 2)
+        card_three = self.create_card(3, 3)
+        card_four = self.create_card(4, 4)
+        column_one = self.create_column(game.id, cards = [card_two])
+        column_two = self.create_column(game.id, cards = [card_three])
+        user2_heap = self.create_heap(game.id, user2.id)
+        user2_hand = self.create_hand(game.id, user2.id)
+        user1_heap = self.create_heap(game.id, user1.id)
+        user1_hand = self.create_hand(game.id, user1.id)
+        user2_chosen_card = self.create_chosen_card(game.id, user2.id,
+                card_one.id)
+        user1_chosen_card = self.create_chosen_card(game.id, user1.id,
+                card_four.id)
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.resolve_turn(user1.id)
+            assert e.code == 422
+
+    def test_choose_cards_for_bots(self):
+        card = self.create_card(1, 1)
+        card2 = self.create_card(2, 2)
+        card3 = self.create_card(3, 3)
+        card4 = self.create_card(4, 4)
+        user = self.create_user()
+        bot1 = self.create_user(urole=User.BOT_ROLE)
+        bot2 = self.create_user(urole=User.BOT_ROLE)
+        game = self.create_game(users = [user, bot1, bot2], owner_id = user.id)
+        user_hand = self.create_hand(game.id, user.id, [card])
+        bot1_hand = self.create_hand(game.id, bot1.id, [card2])
+        bot2_hand = self.create_hand(game.id, bot2.id, [card3])
+        bot2_chosen_card = self.create_chosen_card(game.id, bot2.id, card3.id)
+        game.choose_cards_for_bots(user.id)
+        assert user.has_chosen_card(game.id) == False
+        bot1_chosen_card = bot1.get_chosen_card(game.id)
+        assert bot1_chosen_card != None
+        assert bot1_chosen_card.card_id == card2.id
+        assert len(bot1.get_game_hand(game.id).cards) == 0
+        assert bot2.get_game_hand(game.id).cards == [card3]
+
+    def test_choose_cards_for_bots_errors(self):
+        # Game is not STARTED
+        user = self.create_user()
+        game = self.create_game(status = Game.STATUS_CREATED, owner_id =
+                user.id, users = [user])
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.choose_cards_for_bots(user.id)
+            assert e.code == 400
+        # Turn is being resolved
+        game = self.create_game(status = Game.STATUS_STARTED, owner_id =
+                user.id, users = [user])
+        game.resolving_turn = True
+        db.session.add(game)
+        db.session.commit()
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.choose_cards_for_bots(user.id)
+            assert e.code == 400
+        # Bots have already chosen cards
+        game = self.create_game(status = Game.STATUS_STARTED, owner_id =
+                user.id, users = [user])
+        game.bots_have_chosen_cards = True
+        db.session.add(game)
+        db.session.commit()
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.choose_cards_for_bots(user.id)
+            assert e.code == 400
+
+    def test_choose_card_for_user(self):
+        user = self.create_user()
+        game = self.create_game(users = [user])
+        card = self.create_card(1, 1)
+        hand = self.create_hand(game.id, user.id, cards = [card])
+        assert len(user.get_game_hand(game.id).cards) == 1
+        chosen_card = user.get_chosen_card(game.id)
+        assert chosen_card == None
+        game.choose_card_for_user(user.id, card.id)
+        assert len(user.get_game_hand(game.id).cards) == 0
+        chosen_card = user.get_chosen_card(game.id)
+        assert chosen_card.card_id == card.id
+
+    def test_choose_card_for_user_errors(self):
+        # Turn is being resolved
+        user = self.create_user()
+        card = self.create_card(1, 1)
+        game = self.create_game()
+        game.resolving_turn = True
+        db.session.add(game)
+        db.session.commit()
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.choose_card_for_user(user.id, card.id)
+            assert e.code == 400
+        # User has already chosen a card
+        game = self.create_game(users = [user])
+        chosen_card = self.create_chosen_card(game.id, user.id, card.id)
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.choose_card_for_user(user.id, card.id)
+            assert e.code == 400
+        # User tries to choose a card he doesn't own
+        db.session.delete(chosen_card)
+        hand = self.create_hand(game.id, user.id)
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.choose_card_for_user(user.id, card.id)
+            assert e.code == 400
+
+    def test_choose_column_for_user(self):
+        user = self.create_user()
+        game = self.create_game(users = [user])
+        card_one = self.create_card()
+        card_two = self.create_card()
+        column = self.create_column(game.id, cards = [card_two])
+        user_heap = self.create_heap(game.id, user.id)
+        chosen_card = self.create_chosen_card(game.id, user.id, card_one.id)
+        assert column.cards == [card_two]
+        assert len(user_heap.cards) == 0
+        [chosen_column, new_user_heap] = game.choose_column_for_user(user.id,
+                column.id)
+        assert chosen_column.id == column.id
+        assert chosen_column.cards == [card_one]
+        assert new_user_heap.cards == [card_two]
+
+    def test_update_status(self):
+        # Users still have chosen cards to place
+        user = self.create_user()
+        game = self.create_game(status=Game.STATUS_STARTED, users = [user])
+        game.resolving_turn = True
+        game.bots_have_chosen_cards = True
+        db.session.add(game)
+        db.session.commit()
+        card = self.create_card()
+        user_hand = self.create_hand(game.id, user.id, [card])
+        chosen_card = self.create_chosen_card(game.id, user.id)
+        game.update_status()
+        assert game.status == Game.STATUS_STARTED
+        assert game.resolving_turn == True
+        assert game.bots_have_chosen_cards == True
+        # No chosen cards, but users still have cards in hands
+        db.session.delete(chosen_card)
+        db.session.commit()
+        game.update_status()
+        assert game.status == Game.STATUS_STARTED
+        assert game.resolving_turn == False
+        assert game.bots_have_chosen_cards == False
+        # No remaining card in hands nor to place
+        user_hand.cards = []
+        db.session.add(user_hand)
+        db.session.commit()
+        game.update_status()
+        assert game.status == Game.STATUS_FINISHED
+        assert game.resolving_turn == False
+        assert game.bots_have_chosen_cards == False
 
 if __name__ == '__main__':
     unittest.main()

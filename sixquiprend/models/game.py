@@ -47,6 +47,13 @@ class Game(db.Model):
     def get_chosen_cards(self):
         return ChosenCard.query.filter(ChosenCard.game_id == self.id)
 
+    def find_chosen_card(self, user_id):
+        chosen_card = self.get_chosen_cards().filter(ChosenCard.user_id ==
+                user_id).first()
+        if not chosen_card:
+            raise SixQuiPrendException('Chosen card not found', 404)
+        return chosen_card
+
     def get_user_hand(self, user_id):
         user = self.find_user(user_id)
         hand = user.get_game_hand(self.id)
@@ -63,6 +70,10 @@ class Game(db.Model):
         user_dict['has_chosen_card'] = user.has_chosen_card(self.id)
         user_dict['needs_to_choose_column'] = self.user_needs_to_choose_column(user_id)
         return user_dict
+
+    def check_is_started(self):
+        if self.status != Game.STATUS_STARTED:
+            raise SixQuiPrendException('Game not started', 400)
 
     def check_is_owner(self, user_id):
         if self.owner_id != user_id:
@@ -119,8 +130,7 @@ class Game(db.Model):
         return chosen_cards.all()
 
     def user_needs_to_choose_column(self, user_id):
-        if self.status != Game.STATUS_STARTED:
-            raise SixQuiPrendException('Game not started', 400)
+        self.check_is_started()
         user = self.find_user(user_id)
         if not user.has_chosen_card(self.id):
             return False
@@ -192,7 +202,6 @@ class Game(db.Model):
         self.users.append(user)
         db.session.add(self)
         db.session.commit()
-        return self
 
     def add_bot(self, bot_id, current_user_id):
         self.check_is_owner(current_user_id)
@@ -203,17 +212,15 @@ class Game(db.Model):
         self.users.append(bot)
         db.session.add(self)
         db.session.commit()
-        return self
 
     def remove_user(self, user):
         if user not in self.users.all():
-            return jsonify(error='Not in game'), 400
+            raise SixQuiPrendException('Not in game', 400)
         if user.is_game_owner(self):
             self.remove_owner(user.id)
         self.users.remove(user)
         db.session.add(self)
         db.session.commit()
-        return game
 
     def remove_owner(self, user_id):
         if self.owner_id != user_id:
@@ -229,9 +236,7 @@ class Game(db.Model):
 
     def resolve_turn(self, current_user_id):
         self.check_is_owner(current_user_id)
-        if self.status != Game.STATUS_STARTED:
-            raise SixQuiPrendException('Cannot resolve turn of a non started game', 400)
-        self.resolving_turn = true
+        self.check_is_started()
         chosen_card = ChosenCard.query.filter(ChosenCard.game_id == self.id) \
                 .join(Card) \
                 .order_by(Card.number.asc()) \
@@ -241,12 +246,12 @@ class Game(db.Model):
         try:
             chosen_column = self.get_suitable_column(chosen_card)
         except SixQuiPrendException as e:
-            if chosen_card.get_user().urole == User.BOT_ROLE:
+            if User.find(chosen_card.user_id).urole == User.BOT_ROLE:
                 chosen_column = self.get_lowest_value_column()
                 chosen_column.replace_by_card(chosen_card)
             else:
                 raise e
-        user_game_heap = chosen_card.get_user().get_game_heap(self.id)
+        user_game_heap = User.find(chosen_card.user_id).get_game_heap(self.id)
         if len(chosen_column.cards) == app.config['COLUMN_CARD_SIZE']:
             user_game_heap.cards += chosen_column.cards
             db.session.add(user_game_heap)
@@ -254,14 +259,15 @@ class Game(db.Model):
         chosen_column.cards.append(Card.find(chosen_card.card_id))
         db.session.add(chosen_column)
         db.session.delete(chosen_card)
+        self.resolving_turn = True
+        db.session.add(self)
         db.session.commit()
         self.update_status()
         return [chosen_column, user_game_heap]
 
     def choose_cards_for_bots(self, current_user_id):
         self.check_is_owner(current_user_id)
-        if self.status != Game.STATUS_STARTED:
-            raise SixQuiPrendException('Cannot choose cards for bots of a non started game', 400)
+        self.check_is_started()
         if self.resolving_turn == True:
             raise SixQuiPrendException('Cannot choose cards for bots while turn \
             is being resolved', 400)
@@ -270,13 +276,12 @@ class Game(db.Model):
         for bot in self.users.filter(User.urole == User.BOT_ROLE).order_by(User.id).all():
             if not bot.has_chosen_card(self.id):
                 self.choose_card_for_user(bot.id)
-        self.bots_have_chosen_cards = true
+        self.bots_have_chosen_cards = True
         db.session.add(self)
         db.session.commit()
 
     def choose_card_for_user(self, user_id, card_id=None):
-        if self.status != Game.STATUS_STARTED:
-            raise SixQuiPrendException('Game not started', 400)
+        self.check_is_started()
         user = self.find_user(user_id)
         if self.resolving_turn:
             raise SixQuiPrendException('Cannot choose a card while resolving a turn', 400)
@@ -300,26 +305,26 @@ class Game(db.Model):
         return chosen_card
 
     def choose_column_for_user(self, user_id, column_id):
-        if self.status != Game.STATUS_STARTED:
-            raise SixQuiPrendException('Can only choose a column to replace for a started game', 400)
-        user = self.find_user(current_user.id)
+        self.check_is_started()
+        user = self.find_user(user_id)
         chosen_column = self.find_column(column_id)
-        chosen_card = user.find_chosen_card(self.id)
-        if not chosen_card:
-            raise SixQuiPrendException('No card to place found', 404)
+        chosen_card = self.find_chosen_card(user_id)
         user_heap = chosen_column.replace_by_card(chosen_card)
         return [chosen_column, user_heap]
 
     def update_status(self):
-        if self.status != Game.STATUS_STARTED:
-            raise SixQuiPrendException('Cannot update status of a non started game', 400)
+        self.check_is_started()
+        if self.get_chosen_cards().count() > 0:
+            return
+        else:
+            self.resolving_turn = False
+            self.bots_have_chosen_cards = False
+            db.session.add(self)
+            db.session.commit()
         for user in self.users:
             if len(user.get_game_hand(self.id).cards) > 0:
                 return
         self.status = Game.STATUS_FINISHED
-        if self.get_chosen_cards().count() == 0:
-            self.resolving_turn = False
-            self.bots_have_chosen_cards = False
         db.session.add(self)
         db.session.commit()
 

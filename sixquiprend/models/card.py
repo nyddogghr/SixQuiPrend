@@ -1,3 +1,4 @@
+from sixquiprend.models.six_qui_prend_exception import SixQuiPrendException
 from sixquiprend.sixquiprend import app, db
 
 class Card(db.Model):

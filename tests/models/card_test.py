@@ -2,6 +2,7 @@ from flask import Flask
 from passlib.hash import bcrypt
 from sixquiprend.config import *
 from sixquiprend.models.card import Card
+from sixquiprend.models.six_qui_prend_exception import SixQuiPrendException
 from sixquiprend.sixquiprend import app, db
 from sixquiprend.utils import *
 import json
@@ -43,10 +44,11 @@ class CardTestCase(unittest.TestCase):
     ################################################################################
 
     def test_find(self):
-        card = self.create_card(1, 1)
+        card = self.create_card()
         assert Card.find(card.id) == card
 
     def test_find_errors(self):
+        # Card not found
         with self.assertRaises(SixQuiPrendException) as e:
             Card.find(-1)
             assert e.code == 404

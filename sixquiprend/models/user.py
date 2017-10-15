@@ -116,7 +116,6 @@ class User(db.Model):
         self.active = active
         db.session.add(self)
         db.session.commit()
-        return self
 
     ################################################################################
     ## Serializer

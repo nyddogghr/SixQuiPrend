@@ -95,6 +95,7 @@ class UserTestCase(unittest.TestCase):
         assert User.find(user.id) == user
 
     def test_find_errors(self):
+        # User not found
         user = self.create_user()
         with self.assertRaises(SixQuiPrendException) as e:
             User.find(-1)
@@ -154,16 +155,12 @@ class UserTestCase(unittest.TestCase):
             User.find(user.id)
             assert e.code == 404
 
-    def test_delete_errors(self):
-        with self.assertRaises(SixQuiPrendException) as e:
-            User.delete(-1)
-            assert e.code == 404
-
     def test_register(self):
         user = User.register('toto', 'titi')
         assert User.find(user.id) == user
 
     def test_register_errors(self):
+        # Username already present
         user = self.create_user()
         with self.assertRaises(SixQuiPrendException) as e:
             User.register(user.username, 'titi')
