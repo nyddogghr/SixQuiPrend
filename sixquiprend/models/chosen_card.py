@@ -1,4 +1,5 @@
 from sixquiprend.sixquiprend import app, db
+from sixquiprend.models.card import Card
 
 class ChosenCard(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -11,7 +12,6 @@ class ChosenCard(db.Model):
     ################################################################################
 
     def serialize(self):
-        from sixquiprend.models.card import Card
         return {
                 'id': self.id,
                 'user_id': self.user_id,
