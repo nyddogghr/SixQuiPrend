@@ -64,22 +64,25 @@ class LoginLogoutTestCase(unittest.TestCase):
         db.session.commit()
         return user
 
+    ################################################################################
+    ## Routes
+    ################################################################################
+
     def test_login_logout(self):
         rv = self.app.get('/users/current')
         assert rv.status_code == 200
-        assert json.loads(rv.data) == {'status':False}
+        assert json.loads(rv.data) == {'user':{}}
 
         self.login()
         rv = self.app.get('/users/current')
         assert rv.status_code == 200
         response = json.loads(rv.data)
-        assert response['status'] == True
         assert response['user']['username'] == self.USERNAME
 
         self.logout()
         rv = self.app.get('/users/current')
         assert rv.status_code == 200
-        assert json.loads(rv.data) == {'status':False}
+        assert json.loads(rv.data) == {'user':{}}
 
     def test_login_errors_bot_login(self):
         bot_username = 'bot'
@@ -93,10 +96,10 @@ class LoginLogoutTestCase(unittest.TestCase):
             username=bot_username,
             password=bot_password,
         )), content_type='application/json')
-        assert rv.status_code == 401
+        assert rv.status_code == 403
         rv = self.app.get('/users/current')
         assert rv.status_code == 200
-        assert json.loads(rv.data) == {'status':False}
+        assert json.loads(rv.data) == {'user':{}}
 
     def test_login_errors_user_not_present(self):
         rv = self.app.post('/login', data=json.dumps(dict(
@@ -120,6 +123,18 @@ class LoginLogoutTestCase(unittest.TestCase):
             password='nope'
         )), content_type='application/json')
         assert rv.status_code == 400
+
+    def test_register(self):
+        username = 'toto'
+        password = 'toto'
+        rv = self.app.post('/users/register', data=json.dumps(dict(
+            username=username,
+            password=password,
+        )), content_type='application/json')
+        assert rv.status_code == 201
+        new_user = User.query.filter(username == username,
+                password == password).first()
+        assert new_user != None
 
 if __name__ == '__main__':
     unittest.main()

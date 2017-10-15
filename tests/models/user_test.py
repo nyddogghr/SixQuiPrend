@@ -11,7 +11,6 @@ from sixquiprend.models.six_qui_prend_exception import SixQuiPrendException
 from sixquiprend.models.user import User
 from sixquiprend.sixquiprend import app, db
 from sixquiprend.utils import *
-import json
 import random
 import unittest
 

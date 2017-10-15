@@ -31,6 +31,10 @@ class TemplatesTestCase(unittest.TestCase):
         db.session.remove()
         db.drop_all()
 
+    ################################################################################
+    ## Routes
+    ################################################################################
+
     def test_get_index(self):
         rv = self.app.get('/')
         assert rv.status_code == 200

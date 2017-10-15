@@ -11,9 +11,10 @@ class ChosenCard(db.Model):
     ################################################################################
 
     def serialize(self):
+        from sixquiprend.models.card import Card
         return {
                 'id': self.id,
                 'user_id': self.user_id,
                 'game_id': self.game_id,
-                'card': self.get_card()
+                'card': Card.find(self.card_id)
                 }

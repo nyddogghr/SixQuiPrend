@@ -1,7 +1,13 @@
 from flask import Flask
 from passlib.hash import bcrypt
 from sixquiprend.config import *
+from sixquiprend.models.card import Card
+from sixquiprend.models.chosen_card import ChosenCard
+from sixquiprend.models.column import Column
 from sixquiprend.models.game import Game
+from sixquiprend.models.hand import Hand
+from sixquiprend.models.heap import Heap
+from sixquiprend.models.user import User
 from sixquiprend.sixquiprend import app, db
 from sixquiprend.utils import *
 import json
@@ -54,8 +60,8 @@ class GamesTurnTestCase(unittest.TestCase):
         rv = self.app.get('/users/current')
         assert rv.status_code == 200
         result = json.loads(rv.data)
-        if result['status'] == True:
-            return User.query.get(result['user']['id'])
+        if result['user'] != {}:
+            return User.find(result['user']['id'])
 
     def create_user(self, active=True, urole=User.PLAYER_ROLE):
         username = 'User #'+str(User.query.count())
@@ -100,7 +106,7 @@ class GamesTurnTestCase(unittest.TestCase):
 
     def create_card(self, number=random.randint(1, 1000),
             cow_value=random.randint(1, 1000)):
-        card = Card(number, cow_value)
+        card = Card(number=number, cow_value=cow_value)
         db.session.add(card)
         db.session.commit()
         return card
@@ -115,7 +121,11 @@ class GamesTurnTestCase(unittest.TestCase):
         db.session.commit()
         return chosen_card
 
-    def test_choose_card(self):
+    ################################################################################
+    ## Routes
+    ################################################################################
+
+    def test_choose_card_for_game(self):
         self.login()
         user = self.get_current_user()
         game = self.create_game(status=Game.STATUS_STARTED)
@@ -131,54 +141,21 @@ class GamesTurnTestCase(unittest.TestCase):
         assert response_chosen_card['user_id'] == user.id
         assert response_chosen_card['card']['id'] == card.id
 
-    def test_get_chosen_cards(self):
+    def test_choose_card_for_bots(self):
         self.login()
         user = self.get_current_user()
-        user2 = self.create_user()
         game = self.create_game(status=Game.STATUS_STARTED)
         game.users.append(user)
-        game.users.append(user2)
-        game.owner_id = user.id
         db.session.add(game)
         db.session.commit()
-        card = self.create_card(1, 1)
-        card2 = self.create_card(2, 2)
-        user_chosen_card = self.create_chosen_card(game.id, user.id, card.id)
-        user2_chosen_card = self.create_chosen_card(game.id, user2.id, card2.id)
-        rv = self.app.get('/games/'+str(game.id)+'/chosen_cards')
-        assert rv.status_code == 200
-        response_chosen_cards = sorted(json.loads(rv.data)['chosen_cards'],
-                key=lambda chosen_card: chosen_card['user_id'])
-        assert len(response_chosen_cards) == 2
-        for response_chosen_card in response_chosen_cards:
-            assert response_chosen_card['game_id'] == game.id
-        assert response_chosen_cards[0]['user_id'] == user.id
-        assert response_chosen_cards[0]['card']['id'] == card.id
-        assert response_chosen_cards[1]['user_id'] == user2.id
-        assert response_chosen_cards[1]['card']['id'] == card2.id
-
-    def test_get_chosen_cards_for_current_user_only(self):
-        self.login()
-        user = self.get_current_user()
-        user2 = self.create_user()
-        game = self.create_game(status=Game.STATUS_STARTED)
-        game.users.append(user)
-        game.users.append(user2)
-        game.owner_id = user.id
-        db.session.add(game)
-        db.session.commit()
-        card = self.create_card(1, 1)
-        card2 = self.create_card(2, 2)
-        user_chosen_card = self.create_chosen_card(game.id, user.id, card.id)
-        rv = self.app.get('/games/'+str(game.id)+'/chosen_cards')
-        assert rv.status_code == 200
-        response_chosen_cards = sorted(json.loads(rv.data)['chosen_cards'],
-                key=lambda chosen_card: chosen_card['user_id'])
-        assert len(response_chosen_cards) == 1
-        for response_chosen_card in response_chosen_cards:
-            assert response_chosen_card['game_id'] == game.id
-        assert response_chosen_cards[0]['user_id'] == user.id
-        assert response_chosen_cards[0]['card']['id'] == card.id
+        card = self.create_card()
+        hand = self.create_hand(game_id=game.id, user_id=user.id, cards=[card])
+        rv = self.app.post('/games/'+str(game.id)+'/card/'+str(card.id))
+        assert rv.status_code == 201
+        response_chosen_card = json.loads(rv.data)['chosen_card']
+        assert response_chosen_card['game_id'] == game.id
+        assert response_chosen_card['user_id'] == user.id
+        assert response_chosen_card['card']['id'] == card.id
 
     def test_resolve_turn(self):
         self.login()

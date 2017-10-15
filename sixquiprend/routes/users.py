@@ -60,7 +60,7 @@ def delete_user(user_id):
 def get_current_user():
     """Get current user status"""
     if current_user.is_authenticated:
-        user = User.query.get(current_user.id)
+        user = User.find(current_user.id)
         return jsonify(user=user)
     else:
         return jsonify(user={})

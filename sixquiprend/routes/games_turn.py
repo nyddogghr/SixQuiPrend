@@ -35,5 +35,5 @@ def choose_column_for_card(game_id, column_id):
     """Choose a column for your card in a game (when a user must choose a
     column to replace)"""
     game = Game.find(game_id)
-    [choose_column, user_heap] = game.choose_column_for_user(current_user.id, column_id)
+    [chosen_column, user_heap] = game.choose_column_for_user(current_user.id, column_id)
     return jsonify(chosen_column=chosen_column, user_heap=user_heap), 201

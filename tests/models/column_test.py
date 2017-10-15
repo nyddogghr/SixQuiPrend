@@ -10,7 +10,6 @@ from sixquiprend.models.heap import Heap
 from sixquiprend.models.user import User
 from sixquiprend.sixquiprend import app, db
 from sixquiprend.utils import *
-import json
 import random
 import unittest
 

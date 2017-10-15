@@ -66,8 +66,8 @@ class UsersTestCase(unittest.TestCase):
         rv = self.app.get('/users/current')
         assert rv.status_code == 200
         result = json.loads(rv.data)
-        if result['status'] == True:
-            return User.query.get(result['user']['id'])
+        if result['user'] != {}:
+            return User.find(result['user']['id'])
 
     def create_user(self, active=True, urole=User.PLAYER_ROLE):
         username = 'User #'+str(User.query.count())
@@ -127,17 +127,9 @@ class UsersTestCase(unittest.TestCase):
         db.session.commit()
         return chosen_card
 
-    def test_register(self):
-        username = 'toto'
-        password = 'toto'
-        rv = self.app.post('/users/register', data=json.dumps(dict(
-            username=username,
-            password=password,
-        )), content_type='application/json')
-        assert rv.status_code == 201
-        new_user = User.query.filter(username == username,
-                password == password).first()
-        assert new_user != None
+    ################################################################################
+    ## Routes
+    ################################################################################
 
     def test_get_users(self):
         user = self.create_user()
@@ -214,8 +206,15 @@ class UsersTestCase(unittest.TestCase):
         db.session.refresh(user)
         assert User.query.get(user.id) != None
         rv = self.app.delete('/users/'+str(user.id))
-        assert rv.status_code == 200
+        assert rv.status_code == 204
         assert User.query.get(user.id) == None
+
+    def test_get_current_user(self):
+        rv = self.app.get('/users/current')
+        assert json.loads(rv.data)['user'] == {}
+        self.login()
+        rv = self.app.get('/users/current')
+        assert json.loads(rv.data)['user'] == self.get_current_user().serialize()
 
 if __name__ == '__main__':
     unittest.main()

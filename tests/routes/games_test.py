@@ -1,12 +1,7 @@
 from flask import Flask
 from passlib.hash import bcrypt
 from sixquiprend.config import *
-from sixquiprend.models.card import Card
-from sixquiprend.models.chosen_card import ChosenCard
-from sixquiprend.models.column import Column
 from sixquiprend.models.game import Game
-from sixquiprend.models.hand import Hand
-from sixquiprend.models.heap import Heap
 from sixquiprend.models.user import User
 from sixquiprend.sixquiprend import app, db
 from sixquiprend.utils import *
@@ -62,11 +57,36 @@ class GamesTestCase(unittest.TestCase):
         )), content_type='application/json')
         assert rv.status_code == 201
 
-    def create_game(self, status=Game.STATUS_CREATED):
+    def get_current_user(self):
+        rv = self.app.get('/users/current')
+        assert rv.status_code == 200
+        result = json.loads(rv.data)
+        if result['user'] != {}:
+            return User.find(result['user']['id'])
+
+    def create_user(self, active=True, urole=User.PLAYER_ROLE):
+        username = 'User #'+str(User.query.count())
+        password = 'Password'
+        user = User(username=username,
+                password=bcrypt.hash(password),
+                active=active,
+                urole=urole)
+        db.session.add(user)
+        db.session.commit()
+        return user
+
+    def create_game(self, status=Game.STATUS_CREATED, users = [], owner_id = None):
         game = Game(status=status)
+        for user in users:
+            game.users.append(user)
+        game.owner_id = owner_id
         db.session.add(game)
         db.session.commit()
         return game
+
+    ################################################################################
+    ## Routes
+    ################################################################################
 
     def test_get_games(self):
         game1 = self.create_game()
@@ -101,7 +121,7 @@ class GamesTestCase(unittest.TestCase):
     def test_get_game(self):
         game = self.create_game()
         self.login()
-        rv = self.app.get('/games/'+str(game.id))
+        rv = self.app.get('/games/' + str(game.id))
         assert rv.status_code == 200
         game_response = json.loads(rv.data)['game']
         assert game_response['id'] == game.id
@@ -121,6 +141,57 @@ class GamesTestCase(unittest.TestCase):
         assert rv.status_code == 204
         game_db = Game.query.get(game.id)
         assert game_db == None
+
+    def test_enter_game(self):
+        self.login()
+        game = self.create_game(status = Game.STATUS_CREATED)
+        rv = self.app.post('/games/' + str(game.id) + '/enter', content_type='application/json')
+        assert rv.status_code == 201
+        game = json.loads(rv.data)['game']
+        assert game['status'] == Game.STATUS_CREATED
+        assert game['users'][0]['username'] == self.USERNAME
+
+    def test_get_available_bots_for_game(self):
+        self.login()
+        bot = self.create_user(urole = User.BOT_ROLE)
+        game = self.create_game(status = Game.STATUS_CREATED, owner_id =
+                self.get_current_user().id)
+        rv = self.app.get('/games/' + str(game.id) + '/users/bots')
+        assert rv.status_code == 200
+        available_bots = json.loads(rv.data)['available_bots']
+        assert available_bots == [bot.serialize()]
+
+    def test_add_bot_to_game(self):
+        self.login()
+        game = self.create_game(status = Game.STATUS_CREATED, owner_id =
+                self.get_current_user().id)
+        bot = self.create_user(urole = User.BOT_ROLE)
+        rv = self.app.post('/games/' + str(game.id) + '/users/' + str(bot.id) +
+                '/add')
+        assert rv.status_code == 201
+        game = json.loads(rv.data)['game']
+        assert game['users'] == [bot.serialize()]
+
+    def test_leave_game(self):
+        self.login()
+        user = self.create_user()
+        game = self.create_game(status = Game.STATUS_CREATED, users =
+                [self.get_current_user(), user], owner_id = self.get_current_user().id)
+        rv = self.app.put('/games/' + str(game.id) + '/leave')
+        assert rv.status_code == 200
+        game = json.loads(rv.data)['game']
+        assert game['users'] == [user.serialize()]
+
+    def test_start_game(self):
+        add_cards()
+        self.login()
+        user = self.create_user()
+        game = self.create_game(status = Game.STATUS_CREATED, users =
+                [self.get_current_user(), user], owner_id = self.get_current_user().id)
+        rv = self.app.put('/games/' + str(game.id) + '/start')
+        assert rv.status_code == 200
+        game = json.loads(rv.data)['game']
+        assert game['status'] == Game.STATUS_STARTED
 
 if __name__ == '__main__':
     unittest.main()
