@@ -200,6 +200,12 @@ class UsersTestCase(unittest.TestCase):
         db.session.refresh(user)
         assert user.active == True
 
+    def test_activate_users_errors_not_admin(self):
+        user = self.create_user(False)
+        self.login()
+        rv = self.app.put('/users/'+str(user.id)+'/activate')
+        assert rv.status_code == 401
+
     def test_deactivate_users(self):
         user = self.create_user(True)
         self.login_admin()

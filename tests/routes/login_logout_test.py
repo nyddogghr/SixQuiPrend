@@ -124,6 +124,10 @@ class LoginLogoutTestCase(unittest.TestCase):
         )), content_type='application/json')
         assert rv.status_code == 400
 
+    def test_logout_errors_user_not_logged_in(self):
+        rv = self.app.post('/logout', content_type='application/json')
+        assert rv.status_code == 401
+
     def test_register(self):
         username = 'toto'
         password = 'toto'
