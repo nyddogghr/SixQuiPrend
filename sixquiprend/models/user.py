@@ -12,9 +12,9 @@ user_games = db.Table('user_games',
 )
 
 class User(db.Model):
-    BOT_ROLE = 1
-    PLAYER_ROLE = 2
-    ADMIN_ROLE = 3
+    BOT_ROLE = 0
+    PLAYER_ROLE = 1
+    ADMIN_ROLE = 2
 
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), nullable=False, unique=True)
