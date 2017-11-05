@@ -15,7 +15,10 @@ app.controller('HomeController', ['$rootScope', '$scope', '$http', 'growl',
     // Methods
 
     $scope.get_games = function() {
-      $http.get('/games?offset=' + ($scope.ui.page - 1)* $scope.ui.limit + '&limit=' + $scope.ui.limit)
+      $http.get('/games', { params: {
+        limit: $scope.ui.limit,
+        offset: ($scope.ui.page - 1)*$scope.ui.limit
+      } })
       .then(function(response) {
         $scope.games = response.data.games;
       }, function(response) {
@@ -50,17 +53,12 @@ app.controller('HomeController', ['$rootScope', '$scope', '$http', 'growl',
     };
 
     $scope.enter_game = function(game) {
-      var is_already_in_game = find_by_key(game.users, 'id', $rootScope.current_user.id) != null;
-      if (is_already_in_game) {
-        $scope.show_game(game.id);
-      } else {
-        $http.post('/games/' + game.id + '/enter')
-        .then(function(response) {
-          $scope.show_game(data.response.game.id);
-        }, function(response) {
-          growl.addErrorMessage(response.data.error);
-        });
-      }
+      $http.post('/games/' + game.id + '/enter')
+      .then(function(response) {
+        $scope.show_game(response.data.game);
+      }, function(response) {
+        growl.addErrorMessage(response.data.error);
+      });
     };
 
     $scope.show_game = function(game) {
