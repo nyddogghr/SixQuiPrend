@@ -503,6 +503,22 @@ class GameTestCase(unittest.TestCase):
         with self.assertRaises(SixQuiPrendException) as e:
             game.resolve_turn(user1.id)
             assert e.code == 422
+        # Not all users have chosen cards
+        card_one = self.create_card(1, 1)
+        card_two = self.create_card(2, 2)
+        card_three = self.create_card(3, 3)
+        card_four = self.create_card(4, 4)
+        column_one = self.create_column(game.id, cards = [card_two])
+        column_two = self.create_column(game.id, cards = [card_three])
+        user2_heap = self.create_heap(game.id, user2.id)
+        user2_hand = self.create_hand(game.id, user2.id)
+        user1_heap = self.create_heap(game.id, user1.id)
+        user1_hand = self.create_hand(game.id, user1.id)
+        user2_chosen_card = self.create_chosen_card(game.id, user2.id,
+                card_one.id)
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.resolve_turn(user1.id)
+            assert e.code == 422
         # No suitable column
         card_one = self.create_card(1, 1)
         card_two = self.create_card(2, 2)

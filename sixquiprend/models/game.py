@@ -209,9 +209,6 @@ class Game(db.Model):
         if bot.get_urole() != User.BOT_ROLE:
             raise SixQuiPrendException('Can only add a bot', 400)
         self.add_user(bot)
-        self.users.append(bot)
-        db.session.add(self)
-        db.session.commit()
 
     def remove_user(self, user):
         if user not in self.users.all():
@@ -237,10 +234,12 @@ class Game(db.Model):
     def resolve_turn(self, current_user_id):
         self.check_is_owner(current_user_id)
         self.check_is_started()
-        chosen_card = ChosenCard.query.filter(ChosenCard.game_id == self.id) \
+        chosen_cards = ChosenCard.query.filter(ChosenCard.game_id == self.id) \
                 .join(Card) \
-                .order_by(Card.number.asc()) \
-                .first()
+                .order_by(Card.number.asc())
+        if chosen_cards.count() < self.users.count() and not self.resolving_turn:
+            raise SixQuiPrendException('Some users haven\'t chosen a card yet', 422)
+        chosen_card = chosen_cards.first()
         if chosen_card == None:
             raise SixQuiPrendException('No chosen card to place', 422)
         try:
@@ -337,5 +336,6 @@ class Game(db.Model):
                 'id': self.id,
                 'users': self.users.all(),
                 'owner_id': self.owner_id,
-                'status': self.status
+                'status': self.status,
+                'bots_have_chosen_cards': self.bots_have_chosen_cards
                 }
