@@ -31,6 +31,7 @@ app.controller('TopController', ['$rootScope', '$scope', '$http', 'growl',
       })
       .then(function(response) {
         growl.addSuccessMessage("Registered with success");
+        $scope.login(user);
       }, function(response) {
         growl.addErrorMessage(response.data.error);
       });
