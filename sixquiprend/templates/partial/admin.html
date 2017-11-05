@@ -20,14 +20,18 @@
     <ul>
       <li ng-repeat="user in users">
         {{user.username}} (#{{user.id}})
+        <button ng-if="ui.user_active == 'false'"
+        ng-click="activate_user(user.id)">
+          Activate
+        </button>
         <button ng-if="ui.user_active == 'true'"
         ng-click="deactivate_user(user.id)" ng-disabled="user.urole == 1 ||
         user.id == current_user.id">
           Deactivate
         </button>
-        <button ng-if="ui.user_active == 'false'"
-        ng-click="activate_user(user.id)">
-          Activate
+        <button ng-click="delete_user(user.id)" ng-disabled="user.urole == 1 ||
+        user.id == current_user.id">
+          Delete
         </button>
       </li>
     </ul>
@@ -35,16 +39,16 @@
       No {{ui.user_active == 'true' ? 'active' : 'inactive'}} user
     </div>
     <div ng-if="users.length > 0">
-      <button ng-click="decrease_users_page()" ng-disabled="users.page <= 1">
+      <button ng-click="decrease_users_page()" ng-disabled="ui.page <= 1">
         Previous page
       </button>
-      Page {{users.page}}/{{users.max_page}}
-      <button ng-click="increase_users_page()" ng-disabled="users.page >=
-      users.max_page">
+      Page {{ui.page}}/{{ui.max_page}}
+      <button ng-click="increase_users_page()" ng-disabled="ui.page >=
+      ui.max_page">
         Next page
       </button>
       <br>
-      Display <input type="number" ng-model="users.limit" min=1 max=25> users
+      Display <input type="number" ng-model="ui.limit" min=1 max=25> users
     </div>
   <div>
 </div>

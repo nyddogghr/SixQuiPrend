@@ -15,38 +15,34 @@ app.controller('AdminController', ['$scope', '$http', 'growl',
     // Methods
 
     $scope.get_users = function() {
-      $http.get('/users?active=' + $scope.ui.user_active)
+      $http.get('/users/count', { params: { active: $scope.ui.user_active } })
       .then(function(response) {
-        $scope.users = response.data.users;
-      }, function(response) {
-        growl.addErrorMessage(response.data.error);
-      });
-      $http.get('/users/count?active=' + $scope.ui.user_active)
-      .then(function(response) {
-        $scope.users.max_page = Math.ceil(response.data.count/$scope.users.limit);
+        $scope.ui.max_page = Math.max(1, Math.ceil(response.data.count/$scope.ui.limit));
+        $scope.ui.page = Math.min($scope.ui.page, $scope.ui.max_page)
+        $http.get('/users', { params: {
+          active: $scope.ui.user_active,
+          limit: $scope.ui.limit,
+          offset: ($scope.ui.page - 1)*$scope.ui.limit
+        } })
+        .then(function(response) {
+          $scope.users = response.data.users;
+        }, function(response) {
+          growl.addErrorMessage(response.data.error);
+        });
       }, function(response) {
         growl.addErrorMessage(response.data.error);
       });
     };
 
     $scope.increase_users_page = function() {
-      $scope.users.page = $scope.users.page + 1;
+      $scope.ui.page = $scope.ui.page + 1;
       $scope.get_users();
     }
 
     $scope.decrease_users_page = function() {
-      $scope.users.page = $scope.users.page - 1;
+      $scope.ui.page = $scope.ui.page - 1;
       $scope.get_users();
     }
-
-    $scope.deactivate_user = function(user_id) {
-      $http.put('/users/' + user_id + '/deactivate')
-      .then(function(response) {
-        $scope.get_users();
-      }, function(response) {
-        growl.addErrorMessage(response.data.error);
-      });
-    };
 
     $scope.activate_user = function(user_id) {
       $http.put('/users/' + user_id + '/activate')
@@ -57,9 +53,27 @@ app.controller('AdminController', ['$scope', '$http', 'growl',
       });
     };
 
+    $scope.deactivate_user = function(user_id) {
+      $http.put('/users/' + user_id + '/deactivate')
+      .then(function(response) {
+        $scope.get_users();
+      }, function(response) {
+        growl.addErrorMessage(response.data.error);
+      });
+    };
+
+    $scope.delete_user = function(user_id) {
+      $http.delete('/users/' + user_id)
+      .then(function(response) {
+        $scope.get_users();
+      }, function(response) {
+        growl.addErrorMessage(response.data.error);
+      });
+    };
+
     // Events
 
-    $scope.$watch('ui.user_active', function() {
+    $scope.$watchGroup(['ui.user_active', 'ui.limit'], function() {
       $scope.get_users();
     });
 
