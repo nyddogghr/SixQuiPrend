@@ -28,6 +28,7 @@ class Column(db.Model):
         user_game_heap = User.find(chosen_card.user_id).get_game_heap(chosen_card.game_id)
         user_game_heap.cards += self.cards
         self.cards = [Card.find(chosen_card.card_id)]
+        db.session.delete(chosen_card)
         db.session.add(user_game_heap)
         db.session.add(self)
         db.session.commit()

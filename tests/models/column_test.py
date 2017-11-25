@@ -47,8 +47,10 @@ class ColumnTestCase(unittest.TestCase):
         db.session.commit()
         return user
 
-    def create_game(self, status=Game.STATUS_STARTED):
+    def create_game(self, status=Game.STATUS_STARTED, users=[]):
         game = Game(status=status)
+        for user in users:
+            game.users.append(user)
         db.session.add(game)
         db.session.commit()
         return game
@@ -99,26 +101,19 @@ class ColumnTestCase(unittest.TestCase):
 
     def test_replace_by_card(self):
         user = self.create_user()
-        game = self.create_game()
-        game.users.append(user)
-        game.owner_id = user.id
-        db.session.add(game)
-        db.session.commit()
+        game = self.create_game(users = [user])
         heap = self.create_heap(game.id, user.id)
         card_one = self.create_card(1, 1)
         card_two = self.create_card(2, 2)
         card_three = self.create_card(3, 3)
-        column = self.create_column(game.id)
-        column.cards.append(card_two)
-        column.cards.append(card_three)
-        db.session.add(column)
-        db.session.commit()
+        column = self.create_column(game.id, cards = [card_two, card_three])
         chosen_card = self.create_chosen_card(game.id, user.id,
                 card_one.id)
         assert user.get_game_heap(game.id).get_value() == 0
         column.replace_by_card(chosen_card)
         expected_value = card_two.cow_value + card_three.cow_value
         assert user.get_game_heap(game.id).get_value() == expected_value
+        assert ChosenCard.query.get(chosen_card.id) == None
 
 if __name__ == '__main__':
     unittest.main()
