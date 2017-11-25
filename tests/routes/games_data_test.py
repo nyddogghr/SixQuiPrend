@@ -40,7 +40,7 @@ class GamesDataTestCase(unittest.TestCase):
         admin = User(username=self.ADMIN_USERNAME,
                 password=bcrypt.hash(self.ADMIN_PASSWORD),
                 active=True,
-                urole=User.ADMIN_ROLE)
+                urole=User.ROLE_ADMIN)
         db.session.add(user)
         db.session.add(admin)
         db.session.commit()
@@ -136,19 +136,6 @@ class GamesDataTestCase(unittest.TestCase):
         assert len(response_columns) == 1
         assert len(response_columns[0]['cards']) == 1
         assert response_columns[0]['cards'][0] == card.serialize()
-
-    def test_get_game_users(self):
-        self.login()
-        game = self.create_game()
-        user = self.create_user()
-        game.users.append(user)
-        db.session.add(game)
-        db.session.commit()
-        rv = self.app.get('/games/'+str(game.id)+'/users')
-        assert rv.status_code == 200
-        response_users = json.loads(rv.data)['users']
-        assert len(response_users) == 1
-        assert response_users[0]['id'] == user.id
 
     def test_get_user_game_status(self):
         self.login()

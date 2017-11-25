@@ -33,7 +33,7 @@ class LoginLogoutTestCase(unittest.TestCase):
         admin = User(username=self.ADMIN_USERNAME,
                 password=bcrypt.hash(self.ADMIN_PASSWORD),
                 active=True,
-                urole=User.ADMIN_ROLE)
+                urole=User.ROLE_ADMIN)
         db.session.add(user)
         db.session.add(admin)
         db.session.commit()
@@ -89,7 +89,7 @@ class LoginLogoutTestCase(unittest.TestCase):
         bot_password = 'bot'
         bot = User(username=bot_username,
                 password=bcrypt.hash(bot_password),
-                active=True, urole=User.BOT_ROLE)
+                active=True, urole=User.ROLE_BOT)
         db.session.add(bot)
         db.session.commit()
         rv = self.app.post('/login', data=json.dumps(dict(

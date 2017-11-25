@@ -63,7 +63,7 @@ def get_available_bots_for_game(game_id):
 @app.route('/games/<int:game_id>/users/<int:bot_id>/add', methods=['POST'])
 @login_required
 def add_bot_to_game(game_id, bot_id):
-    """Add a bot to a game"""
+    """Add a bot to a game. Only allowed for game owner"""
     game = Game.find(game_id)
     game.add_bot(bot_id, current_user.id)
     return jsonify(game=game), 201

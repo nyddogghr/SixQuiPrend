@@ -24,7 +24,7 @@ from functools import wraps
 def admin_required(func):
     @wraps(func)
     def func_wrapper(*args, **kwargs):
-        if current_user.is_authenticated and current_user.get_urole() < User.ADMIN_ROLE:
+        if current_user.is_authenticated and current_user.get_urole() < User.ROLE_ADMIN:
             return app.login_manager.unauthorized()
         return func(*args, **kwargs)
     return func_wrapper

@@ -1,14 +1,14 @@
 from sixquiprend.sixquiprend import app, db
 
 heap_cards = db.Table('heap_cards',
-        db.Column('heap_id', db.Integer, db.ForeignKey('heap.id', ondelete="CASCADE")),
+        db.Column('heap_id', db.Integer, db.ForeignKey('heap.id')),
         db.Column('card_id', db.Integer, db.ForeignKey('card.id'))
 )
 
 class Heap(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete="CASCADE"))
-    game_id = db.Column(db.Integer, db.ForeignKey('game.id', ondelete="CASCADE"))
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    game_id = db.Column(db.Integer, db.ForeignKey('game.id'))
     cards = db.relationship('Card', secondary=heap_cards,
             backref=db.backref('heaps', lazy='dynamic'))
 

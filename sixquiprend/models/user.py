@@ -7,14 +7,14 @@ from sixquiprend.sixquiprend import app, db
 import random
 
 user_games = db.Table('user_games',
-        db.Column('user_id', db.Integer, db.ForeignKey('user.id', ondelete="CASCADE")),
-        db.Column('game_id', db.Integer, db.ForeignKey('game.id', ondelete="CASCADE"))
+        db.Column('user_id', db.Integer, db.ForeignKey('user.id')),
+        db.Column('game_id', db.Integer, db.ForeignKey('game.id'))
 )
 
 class User(db.Model):
-    BOT_ROLE = 0
+    ROLE_BOT = 0
     PLAYER_ROLE = 1
-    ADMIN_ROLE = 2
+    ROLE_ADMIN = 2
 
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), nullable=False, unique=True)
@@ -22,6 +22,9 @@ class User(db.Model):
     authenticated = db.Column(db.Boolean, default=False)
     active = db.Column(db.Boolean, default=app.config['ACTIVATE_ALL_USERS'])
     urole = db.Column(db.Integer, default=PLAYER_ROLE)
+    chosen_cards = db.relationship('ChosenCard', backref='user', lazy='dynamic')
+    hands = db.relationship('Hand', backref='user', lazy='dynamic')
+    heaps = db.relationship('Heap', backref='user', lazy='dynamic')
     games = db.relationship('Game', secondary=user_games,
             backref=db.backref('users', lazy='dynamic'))
 
@@ -58,12 +61,6 @@ class User(db.Model):
     def is_game_owner(self, game):
         return game.owner_id == self.id
 
-    def get_game_heap(self, game_id):
-        return Heap.query.filter(Heap.game_id == game_id, Heap.user_id == self.id).first()
-
-    def get_game_hand(self, game_id):
-        return Hand.query.filter(Hand.game_id == game_id, Hand.user_id == self.id).first()
-
     def has_chosen_card(self, game_id):
         return self.get_chosen_card(game_id) != None
 
@@ -93,7 +90,7 @@ class User(db.Model):
     def login(username, password):
         user = User.query.filter(User.username == username).first()
         if user:
-            if user.urole == User.BOT_ROLE:
+            if user.urole == User.ROLE_BOT:
                 raise SixQuiPrendException('Bots cannot login', 403)
             if not user.is_active():
                 raise SixQuiPrendException('User is inactive', 403)

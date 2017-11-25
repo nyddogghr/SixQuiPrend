@@ -40,7 +40,7 @@ class GamesTurnTestCase(unittest.TestCase):
         admin = User(username=self.ADMIN_USERNAME,
                 password=bcrypt.hash(self.ADMIN_PASSWORD),
                 active=True,
-                urole=User.ADMIN_ROLE)
+                urole=User.ROLE_ADMIN)
         db.session.add(user)
         db.session.add(admin)
         db.session.commit()
@@ -74,8 +74,7 @@ class GamesTurnTestCase(unittest.TestCase):
         db.session.commit()
         return user
 
-    def create_game(self, status=Game.STATUS_CREATED, users = [], owner_id =
-            None):
+    def create_game(self, status=Game.STATUS_CREATED, users=[], owner_id=None):
         game = Game(status=status)
         for user in users:
             game.users.append(user)
@@ -129,10 +128,24 @@ class GamesTurnTestCase(unittest.TestCase):
     ## Routes
     ################################################################################
 
+    def test_get_game_status(self):
+        self.login()
+        user = self.get_current_user()
+        game = self.create_game(status=Game.STATUS_STARTED, users=[user],
+                owner_id=user.id)
+        card = self.create_card()
+        hand = self.create_hand(game_id=game.id, user_id=user.id, cards=[card])
+        rv = self.app.get('/games/'+str(game.id)+'/status')
+        assert rv.status_code == 200
+        response_game_status = json.loads(rv.data)
+        assert response_game_status['can_place_card'] == False
+        assert response_game_status['is_resolving_turn'] == False
+        assert response_game_status['can_choose_cards_for_bots'] == False
+
     def test_choose_card_for_game(self):
         self.login()
         user = self.get_current_user()
-        game = self.create_game(status = Game.STATUS_STARTED, users = [user])
+        game = self.create_game(status=Game.STATUS_STARTED, users=[user])
         card = self.create_card()
         hand = self.create_hand(game_id=game.id, user_id=user.id, cards=[card])
         rv = self.app.post('/games/'+str(game.id)+'/card/'+str(card.id))
@@ -145,9 +158,9 @@ class GamesTurnTestCase(unittest.TestCase):
     def test_choose_card_for_bots(self):
         self.login()
         card = self.create_card(1, 1)
-        bot = self.create_user(urole=User.BOT_ROLE)
+        bot = self.create_user(urole=User.ROLE_BOT)
         user = self.get_current_user()
-        game = self.create_game(status = Game.STATUS_STARTED, users = [user,
+        game = self.create_game(status=Game.STATUS_STARTED, users=[user,
             bot], owner_id = user.id)
         card = self.create_card()
         bot_hand = self.create_hand(game.id, bot.id, [card])
@@ -155,7 +168,7 @@ class GamesTurnTestCase(unittest.TestCase):
         assert rv.status_code == 201
         assert bot_hand.cards == []
 
-    def test_resolve_turn(self):
+    def test_place_card(self):
         self.login()
         user = self.get_current_user()
         user2 = self.create_user()
@@ -174,7 +187,7 @@ class GamesTurnTestCase(unittest.TestCase):
         user_chosen_card = self.create_chosen_card(game.id, user.id, card2.id)
         user2_chosen_card = self.create_chosen_card(game.id, user2.id, card3.id)
         column = self.create_column(game.id, [card])
-        rv = self.app.post('/games/'+str(game.id)+'/turns/resolve')
+        rv = self.app.post('/games/'+str(game.id)+'/cards/place')
         assert rv.status_code == 201
         response = json.loads(rv.data)
         assert response['chosen_column']['id'] == column.id

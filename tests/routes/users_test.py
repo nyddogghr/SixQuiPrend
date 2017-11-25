@@ -35,7 +35,7 @@ class UsersTestCase(unittest.TestCase):
         admin = User(username=self.ADMIN_USERNAME,
                 password=bcrypt.hash(self.ADMIN_PASSWORD),
                 active=True,
-                urole=User.ADMIN_ROLE)
+                urole=User.ROLE_ADMIN)
         db.session.add(user)
         db.session.add(admin)
         db.session.commit()

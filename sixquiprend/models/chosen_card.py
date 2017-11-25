@@ -1,11 +1,11 @@
 from sixquiprend.sixquiprend import app, db
-from sixquiprend.models.card import Card
 
 class ChosenCard(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete="CASCADE"))
-    game_id = db.Column(db.Integer, db.ForeignKey('game.id', ondelete="CASCADE"))
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    game_id = db.Column(db.Integer, db.ForeignKey('game.id'))
     card_id = db.Column(db.Integer, db.ForeignKey('card.id'))
+    card = db.relationship('Card', backref='chosen_card', lazy=True)
 
     ################################################################################
     ## Serializer
@@ -16,5 +16,5 @@ class ChosenCard(db.Model):
                 'id': self.id,
                 'user_id': self.user_id,
                 'game_id': self.game_id,
-                'card': Card.find(self.card_id)
+                'card': self.card
                 }

@@ -34,7 +34,7 @@ class GamesTestCase(unittest.TestCase):
         admin = User(username=self.ADMIN_USERNAME,
                 password=bcrypt.hash(self.ADMIN_PASSWORD),
                 active=True,
-                urole=User.ADMIN_ROLE)
+                urole=User.ROLE_ADMIN)
         db.session.add(user)
         db.session.add(admin)
         db.session.commit()
@@ -75,7 +75,7 @@ class GamesTestCase(unittest.TestCase):
         db.session.commit()
         return user
 
-    def create_game(self, status=Game.STATUS_CREATED, users = [], owner_id = None):
+    def create_game(self, status=Game.STATUS_CREATED, users=[], owner_id=None):
         game = Game(status=status)
         for user in users:
             game.users.append(user)
@@ -144,7 +144,7 @@ class GamesTestCase(unittest.TestCase):
 
     def test_enter_game(self):
         self.login()
-        game = self.create_game(status = Game.STATUS_CREATED)
+        game = self.create_game(status=Game.STATUS_CREATED)
         rv = self.app.post('/games/' + str(game.id) + '/enter', content_type='application/json')
         assert rv.status_code == 201
         game = json.loads(rv.data)['game']
@@ -153,9 +153,9 @@ class GamesTestCase(unittest.TestCase):
 
     def test_get_available_bots_for_game(self):
         self.login()
-        bot = self.create_user(urole = User.BOT_ROLE)
-        game = self.create_game(status = Game.STATUS_CREATED, owner_id =
-                self.get_current_user().id)
+        bot = self.create_user(urole=User.ROLE_BOT)
+        game = self.create_game(status=Game.STATUS_CREATED,
+                owner_id=self.get_current_user().id)
         rv = self.app.get('/games/' + str(game.id) + '/users/bots')
         assert rv.status_code == 200
         available_bots = json.loads(rv.data)['available_bots']
@@ -163,9 +163,9 @@ class GamesTestCase(unittest.TestCase):
 
     def test_add_bot_to_game(self):
         self.login()
-        game = self.create_game(status = Game.STATUS_CREATED, owner_id =
-                self.get_current_user().id)
-        bot = self.create_user(urole = User.BOT_ROLE)
+        game = self.create_game(status=Game.STATUS_CREATED,
+                owner_id=self.get_current_user().id)
+        bot = self.create_user(urole=User.ROLE_BOT)
         rv = self.app.post('/games/' + str(game.id) + '/users/' + str(bot.id) +
                 '/add')
         assert rv.status_code == 201
@@ -175,8 +175,9 @@ class GamesTestCase(unittest.TestCase):
     def test_leave_game(self):
         self.login()
         user = self.create_user()
-        game = self.create_game(status = Game.STATUS_CREATED, users =
-                [self.get_current_user(), user], owner_id = self.get_current_user().id)
+        game = self.create_game(status=Game.STATUS_CREATED,
+                users=[self.get_current_user(), user],
+                owner_id=self.get_current_user().id)
         rv = self.app.put('/games/' + str(game.id) + '/leave')
         assert rv.status_code == 200
         game = json.loads(rv.data)['game']
@@ -186,8 +187,9 @@ class GamesTestCase(unittest.TestCase):
         add_cards()
         self.login()
         user = self.create_user()
-        game = self.create_game(status = Game.STATUS_CREATED, users =
-                [self.get_current_user(), user], owner_id = self.get_current_user().id)
+        game = self.create_game(status=Game.STATUS_CREATED,
+                users=[self.get_current_user(), user],
+                owner_id=self.get_current_user().id)
         rv = self.app.put('/games/' + str(game.id) + '/start')
         assert rv.status_code == 200
         game = json.loads(rv.data)['game']

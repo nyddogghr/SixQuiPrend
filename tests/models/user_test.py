@@ -103,21 +103,9 @@ class UserTestCase(unittest.TestCase):
             User.find(-1)
             assert e.code == 404
 
-    def test_get_game_heap(self):
-        user = self.create_user()
-        game = self.create_game(users = [user], owner_id = user.id)
-        heap = self.create_heap(game.id, user.id)
-        assert user.get_game_heap(game.id) == heap
-
-    def test_get_game_hand(self):
-        user = self.create_user()
-        game = self.create_game(users = [user], owner_id = user.id)
-        hand = self.create_hand(game.id, user.id)
-        assert user.get_game_hand(game.id) == hand
-
     def test_has_chosen_card(self):
         user = self.create_user()
-        game = self.create_game(users = [user], owner_id = user.id)
+        game = self.create_game(users=[user], owner_id=user.id)
         card = self.create_card()
         assert user.has_chosen_card(game.id) == False
         chosen_card = self.create_chosen_card(game.id, user.id, card.id)
@@ -125,7 +113,7 @@ class UserTestCase(unittest.TestCase):
 
     def test_get_chosen_card(self):
         user = self.create_user()
-        game = self.create_game(users = [user], owner_id = user.id)
+        game = self.create_game(users=[user], owner_id=user.id)
         card = self.create_card()
         chosen_card = self.create_chosen_card(game.id, user.id, card.id)
         assert user.get_chosen_card(game.id) == chosen_card
@@ -158,12 +146,12 @@ class UserTestCase(unittest.TestCase):
 
     def test_login_errors(self):
         # User is a bot
-        user = self.create_user(urole = User.BOT_ROLE)
+        user = self.create_user(urole=User.ROLE_BOT)
         with self.assertRaises(SixQuiPrendException) as e:
             User.login(user.username, 'Password')
             assert e.code == 403
         # User is not active
-        user = self.create_user(active = False)
+        user = self.create_user(active=False)
         with self.assertRaises(SixQuiPrendException) as e:
             User.login(user.username, 'Password')
             assert e.code == 403
@@ -174,13 +162,13 @@ class UserTestCase(unittest.TestCase):
             assert e.code == 400
 
     def test_logout(self):
-        user = self.create_user(authenticated = True)
+        user = self.create_user(authenticated=True)
         assert user.is_authenticated() == True
         user.logout()
         assert user.is_authenticated() == False
 
     def test_change_active(self):
-        user = self.create_user(active = True)
+        user = self.create_user(active=True)
         assert user.is_active() == True
         user.change_active(False)
         assert user.is_active() == False

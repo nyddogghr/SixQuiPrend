@@ -9,16 +9,7 @@ from sixquiprend.sixquiprend import app, admin_required
 def get_game_columns(game_id):
     """Get columns for the given game"""
     game = Game.find(game_id)
-    columns = game.get_columns().all()
-    return jsonify(columns=columns)
-
-@app.route('/games/<int:game_id>/users')
-@login_required
-def get_game_users(game_id):
-    """Get users for a given game"""
-    game = Game.find(game_id)
-    users = game.users.all()
-    return jsonify(users=users)
+    return jsonify(columns=game.columns.all())
 
 @app.route('/games/<int:game_id>/users/<int:user_id>/status')
 @login_required
