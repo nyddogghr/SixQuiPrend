@@ -271,21 +271,20 @@ class Game(db.Model):
         user_game_heap = self.get_user_heap(chosen_card.user_id)
         try:
             chosen_column = self.get_suitable_column(chosen_card)
+            if len(chosen_column.cards) == app.config['COLUMN_CARD_SIZE']:
+                user_game_heap.cards += chosen_column.cards
+                db.session.add(user_game_heap)
+                chosen_column.cards = []
+            chosen_column.cards.append(chosen_card.card)
+            db.session.add(chosen_column)
+            db.session.delete(chosen_card)
+            db.session.commit()
         except SixQuiPrendException as e:
             if User.find(chosen_card.user_id).urole == User.ROLE_BOT:
                 chosen_column = self.get_lowest_value_column()
                 self.replace_column_by_card(chosen_column, chosen_card)
             else:
                 raise e
-        if len(chosen_column.cards) == app.config['COLUMN_CARD_SIZE']:
-            user_game_heap.cards += chosen_column.cards
-            db.session.add(user_game_heap)
-            chosen_column.cards = []
-        chosen_column.cards.append(chosen_card.card)
-        db.session.add(chosen_column)
-        db.session.delete(chosen_card)
-        db.session.add(self)
-        db.session.commit()
         self.update_status()
         return [chosen_column, user_game_heap]
 
