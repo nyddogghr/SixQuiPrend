@@ -159,6 +159,13 @@ class GameTestCase(unittest.TestCase):
         assert game.get_user_status(user.id)['has_chosen_card'] == False
         assert game.get_user_status(user.id)['needs_to_choose_column'] == False
 
+    def test_get_user_chosen_card(self):
+        user = self.create_user()
+        game = self.create_game(users=[user])
+        card = self.create_card()
+        chosen_card = self.create_chosen_card(game.id, user.id, card.id)
+        assert game.get_user_chosen_card(user.id) == chosen_card
+
     def test_check_is_started(self):
         game = self.create_game(status=Game.STATUS_STARTED)
         game.check_is_started()
@@ -567,7 +574,7 @@ class GameTestCase(unittest.TestCase):
         assert new_bot_heap.user_id == bot.id
         assert len(new_bot_heap.cards) == 1
         assert new_bot_heap.cards[0] == card_two
-        assert bot.has_chosen_card(game.id) == False
+        assert game.get_user_chosen_card(bot.id) == None
         assert game.can_place_card(user.id) == True
         assert game.is_resolving_turn == True
         # User completes a column
@@ -577,7 +584,7 @@ class GameTestCase(unittest.TestCase):
         assert new_user_heap.user_id == user.id
         assert len(new_user_heap.cards) == 2
         assert new_user_heap.cards == [card_three, card_four]
-        assert user.has_chosen_card(game.id) == False
+        assert game.get_user_chosen_card(user.id) == None
         assert game.can_place_card(user.id) == False
         assert game.is_resolving_turn == False
         assert game.status == Game.STATUS_FINISHED
@@ -640,8 +647,8 @@ class GameTestCase(unittest.TestCase):
         bot2_hand = self.create_hand(game.id, bot2.id, [card3])
         bot2_chosen_card = self.create_chosen_card(game.id, bot2.id, card3.id)
         game.choose_cards_for_bots(user.id)
-        assert user.has_chosen_card(game.id) == False
-        bot1_chosen_card = bot1.get_chosen_card(game.id)
+        assert game.get_user_chosen_card(user.id) == None
+        bot1_chosen_card = game.get_user_chosen_card(bot1.id)
         assert bot1_chosen_card != None
         assert bot1_chosen_card.card_id == card2.id
         assert len(game.get_user_hand(bot1.id).cards) == 0
@@ -678,11 +685,11 @@ class GameTestCase(unittest.TestCase):
         card = self.create_card(1, 1)
         hand = self.create_hand(game.id, user.id, cards=[card])
         assert len(game.get_user_hand(user.id).cards) == 1
-        chosen_card = user.get_chosen_card(game.id)
+        chosen_card = game.get_user_chosen_card(user.id)
         assert chosen_card == None
         game.choose_card_for_user(user.id, card.id)
         assert len(game.get_user_hand(user.id).cards) == 0
-        chosen_card = user.get_chosen_card(game.id)
+        chosen_card = game.get_user_chosen_card(user.id)
         assert chosen_card.card_id == card.id
 
     def test_choose_card_for_user_errors(self):

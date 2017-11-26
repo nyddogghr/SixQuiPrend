@@ -1,7 +1,4 @@
 from passlib.hash import bcrypt
-from sixquiprend.models.chosen_card import ChosenCard
-from sixquiprend.models.hand import Hand
-from sixquiprend.models.heap import Heap
 from sixquiprend.models.six_qui_prend_exception import SixQuiPrendException
 from sixquiprend.sixquiprend import app, db
 import random
@@ -63,13 +60,6 @@ class User(db.Model):
 
     def is_game_owner(self, game):
         return game.owner_id == self.id
-
-    def has_chosen_card(self, game_id):
-        return self.get_chosen_card(game_id) != None
-
-    def get_chosen_card(self, game_id):
-        return ChosenCard.query.filter(game_id == game_id,
-                ChosenCard.user_id == self.id).first()
 
     ################################################################################
     ## Actions

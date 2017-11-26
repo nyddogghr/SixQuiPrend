@@ -1,4 +1,3 @@
-from sixquiprend.models.card import Card
 from sixquiprend.sixquiprend import app, db
 
 column_cards = db.Table('column_cards',
@@ -26,7 +25,7 @@ class Column(db.Model):
     def replace_by_card(self, chosen_card):
         user_game_heap = self.game.get_user_heap(chosen_card.user_id)
         user_game_heap.cards += self.cards
-        self.cards = [Card.find(chosen_card.card_id)]
+        self.cards = [chosen_card.card]
         db.session.delete(chosen_card)
         db.session.add(user_game_heap)
         db.session.add(self)

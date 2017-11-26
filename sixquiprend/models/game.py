@@ -4,7 +4,7 @@ from sixquiprend.models.column import Column
 from sixquiprend.models.hand import Hand
 from sixquiprend.models.heap import Heap
 from sixquiprend.models.six_qui_prend_exception import SixQuiPrendException
-from sixquiprend.models.user import User, user_games
+from sixquiprend.models.user import User
 from sixquiprend.sixquiprend import app, db
 import random
 
@@ -68,9 +68,12 @@ class Game(db.Model):
     def get_user_status(self, user_id):
         user = self.find_user(user_id)
         user_dict = user.serialize()
-        user_dict['has_chosen_card'] = user.has_chosen_card(self.id)
+        user_dict['has_chosen_card'] = self.get_user_chosen_card(user_id) != None
         user_dict['needs_to_choose_column'] = self.user_needs_to_choose_column(user_id)
         return user_dict
+
+    def get_user_chosen_card(self, user_id):
+        return self.chosen_cards.filter(ChosenCard.user_id == user_id).first()
 
     def check_is_started(self):
         if self.status != Game.STATUS_STARTED:
@@ -131,15 +134,14 @@ class Game(db.Model):
     def user_needs_to_choose_column(self, user_id):
         self.check_is_started()
         user = self.find_user(user_id)
-        if not user.has_chosen_card(self.id):
+        if self.get_user_chosen_card(user_id) == None:
             return False
-        cc = user.get_chosen_card(self.id)
+        cc = self.get_user_chosen_card(user_id)
         try:
             self.get_suitable_column(cc)
         except SixQuiPrendException:
-            lower_chosen_card_count = ChosenCard.query.filter(ChosenCard.game_id == self.id) \
-                    .join(Card) \
-                    .filter(Card.number < Card.find(cc.card_id).number) \
+            lower_chosen_card_count = self.chosen_cards.join(Card) \
+                    .filter(Card.number < cc.card.number) \
                     .count()
             return lower_chosen_card_count == 0
         return False
@@ -161,8 +163,8 @@ class Game(db.Model):
     def can_choose_cards_for_bots(self, current_user_id):
         if self.can_place_card(current_user_id):
             return False
-        for bot in self.users.filter(User.urole == User.ROLE_BOT).order_by(User.id).all():
-            if not bot.has_chosen_card(self.id):
+        for bot in self.users.filter(User.urole == User.ROLE_BOT).all():
+            if self.get_user_chosen_card(bot.id) == None:
                 return True
         return False
 
@@ -238,8 +240,8 @@ class Game(db.Model):
             self.remove_owner(user.id)
         db.session.delete(self.get_user_hand(user.id))
         db.session.delete(self.get_user_heap(user.id))
-        if user.get_chosen_card(self.id):
-            db.session.delete(user.get_chosen_card(self.id))
+        if self.get_user_chosen_card(user.id):
+            db.session.delete(self.get_user_chosen_card(user.id))
         self.users.remove(user)
         db.session.add(self)
         db.session.commit()
@@ -273,7 +275,7 @@ class Game(db.Model):
             db.session.delete(chosen_card)
             db.session.commit()
         except SixQuiPrendException as e:
-            if User.find(chosen_card.user_id).urole == User.ROLE_BOT:
+            if chosen_card.user.urole == User.ROLE_BOT:
                 chosen_column = self.get_lowest_value_column()
                 chosen_column.replace_by_card(chosen_card)
             else:
@@ -290,7 +292,7 @@ class Game(db.Model):
         if not self.can_choose_cards_for_bots(current_user_id):
             raise SixQuiPrendException('Bots have already chosen cards', 400)
         for bot in self.users.filter(User.urole == User.ROLE_BOT).order_by(User.id).all():
-            if not bot.has_chosen_card(self.id):
+            if self.get_user_chosen_card(bot.id) == None:
                 self.choose_card_for_user(bot.id)
         db.session.add(self)
         db.session.commit()
@@ -300,7 +302,7 @@ class Game(db.Model):
         user = self.find_user(user_id)
         if self.is_resolving_turn:
             raise SixQuiPrendException('Cannot choose a card while resolving a turn', 400)
-        if user.has_chosen_card(self.id):
+        if self.get_user_chosen_card(user_id):
             raise SixQuiPrendException('User has already chosen a card', 400)
         hand = self.get_user_hand(user.id)
         if card_id == None:

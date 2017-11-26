@@ -113,21 +113,6 @@ class UserTestCase(unittest.TestCase):
             User.find(-1)
             assert e.code == 404
 
-    def test_has_chosen_card(self):
-        user = self.create_user()
-        game = self.create_game(users=[user], owner_id=user.id)
-        card = self.create_card()
-        assert user.has_chosen_card(game.id) == False
-        chosen_card = self.create_chosen_card(game.id, user.id, card.id)
-        assert user.has_chosen_card(game.id) == True
-
-    def test_get_chosen_card(self):
-        user = self.create_user()
-        game = self.create_game(users=[user], owner_id=user.id)
-        card = self.create_card()
-        chosen_card = self.create_chosen_card(game.id, user.id, card.id)
-        assert user.get_chosen_card(game.id) == chosen_card
-
     ################################################################################
     ## Actions
     ################################################################################
