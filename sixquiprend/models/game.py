@@ -247,16 +247,6 @@ class Game(db.Model):
             db.session.add(self)
             db.session.commit()
 
-    def replace_column_by_card(self, column, chosen_card):
-        user_game_heap = self.get_user_heap(chosen_card.user_id)
-        user_game_heap.cards += column.cards
-        column.cards = [Card.find(chosen_card.card_id)]
-        db.session.delete(chosen_card)
-        db.session.add(user_game_heap)
-        db.session.add(column)
-        db.session.commit()
-        return user_game_heap
-
     def place_card(self, current_user_id):
         self.check_is_owner(current_user_id)
         self.check_is_started()
@@ -282,7 +272,7 @@ class Game(db.Model):
         except SixQuiPrendException as e:
             if User.find(chosen_card.user_id).urole == User.ROLE_BOT:
                 chosen_column = self.get_lowest_value_column()
-                self.replace_column_by_card(chosen_column, chosen_card)
+                chosen_column.replace_by_card(chosen_card)
             else:
                 raise e
         self.update_status()
@@ -334,7 +324,7 @@ class Game(db.Model):
         user = self.find_user(user_id)
         chosen_column = self.find_column(column_id)
         chosen_card = self.find_chosen_card(user_id)
-        user_heap = self.replace_column_by_card(chosen_column, chosen_card)
+        user_heap = chosen_column.replace_by_card(chosen_card)
         return [chosen_column, user_heap]
 
     def update_status(self):

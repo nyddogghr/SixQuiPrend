@@ -20,6 +20,20 @@ class Column(db.Model):
         return sum(card.cow_value for card in self.cards)
 
     ################################################################################
+    ## Actions
+    ################################################################################
+
+    def replace_by_card(self, chosen_card):
+        user_game_heap = self.game.get_user_heap(chosen_card.user_id)
+        user_game_heap.cards += self.cards
+        self.cards = [Card.find(chosen_card.card_id)]
+        db.session.delete(chosen_card)
+        db.session.add(user_game_heap)
+        db.session.add(self)
+        db.session.commit()
+        return user_game_heap
+
+    ################################################################################
     ## Serializer
     ################################################################################
 

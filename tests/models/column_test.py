@@ -85,6 +85,26 @@ class ColumnTestCase(unittest.TestCase):
         return card
 
     ################################################################################
+    ## Actions
+    ################################################################################
+
+    def test_replace_by_card(self):
+        user = self.create_user()
+        game = self.create_game(users=[user])
+        heap = self.create_heap(game.id, user.id)
+        card_one = self.create_card(1, 1)
+        card_two = self.create_card(2, 2)
+        card_three = self.create_card(3, 3)
+        column = self.create_column(game.id, cards=[card_two, card_three])
+        chosen_card = self.create_chosen_card(game.id, user.id,
+                card_one.id)
+        assert game.get_user_heap(user.id).get_value() == 0
+        column.replace_by_card(chosen_card)
+        expected_value = card_two.cow_value + card_three.cow_value
+        assert game.get_user_heap(user.id).get_value() == expected_value
+        assert ChosenCard.query.get(chosen_card.id) == None
+
+    ################################################################################
     ## Getters
     ################################################################################
 
