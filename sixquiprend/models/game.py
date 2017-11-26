@@ -238,8 +238,10 @@ class Game(db.Model):
             raise SixQuiPrendException('Not in game', 400)
         if user.is_game_owner(self):
             self.remove_owner(user.id)
-        db.session.delete(self.get_user_hand(user.id))
-        db.session.delete(self.get_user_heap(user.id))
+        if self.get_user_hand(user.id):
+            db.session.delete(self.get_user_hand(user.id))
+        if self.get_user_heap(user.id):
+            db.session.delete(self.get_user_heap(user.id))
         if self.get_user_chosen_card(user.id):
             db.session.delete(self.get_user_chosen_card(user.id))
         self.users.remove(user)
