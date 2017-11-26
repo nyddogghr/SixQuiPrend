@@ -149,8 +149,9 @@ class Game(db.Model):
         if self.status != Game.STATUS_STARTED:
             return False
         if self.is_resolving_turn:
-            for user in self.users.all():
-                if self.user_needs_to_choose_column(user.id):
+            chosen_card = self.chosen_cards.join(Card).order_by(Card.number.asc()).first()
+            if chosen_card.user.urole != User.ROLE_BOT:
+                if self.user_needs_to_choose_column(chosen_card.user_id):
                     return False
             return True
         if self.chosen_cards.count() == self.users.count():
@@ -256,16 +257,10 @@ class Game(db.Model):
             db.session.commit()
 
     def place_card(self, current_user_id):
-        self.check_is_owner(current_user_id)
         self.check_is_started()
-        chosen_cards = ChosenCard.query.filter(ChosenCard.game_id == self.id) \
-                .join(Card) \
-                .order_by(Card.number.asc())
-        if chosen_cards.count() < self.users.count() and not self.is_resolving_turn:
-            raise SixQuiPrendException('Some users haven\'t chosen a card yet', 422)
-        chosen_card = chosen_cards.first()
-        if chosen_card == None:
+        if not self.can_place_card(current_user_id):
             raise SixQuiPrendException('No chosen card to place', 422)
+        chosen_card = self.chosen_cards.join(Card).order_by(Card.number.asc()).first()
         user_game_heap = self.get_user_heap(chosen_card.user_id)
         try:
             chosen_column = self.get_suitable_column(chosen_card)

@@ -317,21 +317,23 @@ class GameTestCase(unittest.TestCase):
     def test_can_place_card(self):
         user1 = self.create_user()
         user2 = self.create_user()
-        game = self.create_game(users=[user1, user2], owner_id=user1.id)
+        bot = self.create_user(urole=User.ROLE_BOT)
+        game = self.create_game(users=[user1, user2, bot], owner_id=user1.id)
         card_one = self.create_card(1, 1)
         card_two = self.create_card(2, 2)
         card_three = self.create_card(3, 3)
         card_four = self.create_card(4, 4)
         card_five = self.create_card(5, 5)
+        card_six = self.create_card(6, 6)
         column_one = self.create_column(game.id, cards=[card_two])
         column_two = self.create_column(game.id, cards=[card_three])
         assert game.can_place_card(user1.id) == False
         chosen_card1 = self.create_chosen_card(game.id, user1.id, card_four.id)
         assert game.can_place_card(user1.id) == False
-        chosen_card2 = self.create_chosen_card(game.id, user2.id, card_five.id)
+        chosen_cardb = self.create_chosen_card(game.id, bot.id, card_five.id)
+        chosen_card2 = self.create_chosen_card(game.id, user2.id, card_six.id)
         assert game.can_place_card(user1.id) == True
         db.session.delete(chosen_card1)
-        db.session.refresh(game)
         assert game.can_place_card(user1.id) == False
         game.is_resolving_turn = True
         db.session.add(game)
@@ -339,6 +341,10 @@ class GameTestCase(unittest.TestCase):
         assert game.can_place_card(user1.id) == True
         chosen_card1 = self.create_chosen_card(game.id, user1.id, card_one.id)
         assert game.can_place_card(user1.id) == False
+        db.session.delete(chosen_card1)
+        db.session.delete(chosen_cardb)
+        chosen_cardb = self.create_chosen_card(game.id, bot.id, card_one.id)
+        assert game.can_place_card(user1.id) == True
 
     def test_can_choose_cards_for_bots(self):
         user = self.create_user()
