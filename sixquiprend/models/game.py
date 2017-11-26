@@ -17,10 +17,14 @@ class Game(db.Model):
     status = db.Column(db.Integer, nullable=False, default=STATUS_CREATED)
     is_resolving_turn = db.Column(db.Boolean, default=False)
     owner_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    hands = db.relationship('Hand', backref='game', lazy='dynamic')
-    heaps = db.relationship('Heap', backref='game', lazy='dynamic')
-    columns = db.relationship('Column', backref='game', lazy='dynamic')
-    chosen_cards = db.relationship('ChosenCard', backref='game', lazy='dynamic')
+    hands = db.relationship('Hand', backref='game', lazy='dynamic',
+            cascade="all, delete, delete-orphan")
+    heaps = db.relationship('Heap', backref='game', lazy='dynamic',
+            cascade="all, delete, delete-orphan")
+    columns = db.relationship('Column', backref='game', lazy='dynamic',
+            cascade="all, delete, delete-orphan")
+    chosen_cards = db.relationship('ChosenCard', backref='game', lazy='dynamic',
+            cascade="all, delete, delete-orphan")
 
     ################################################################################
     ## Getters
@@ -53,12 +57,12 @@ class Game(db.Model):
 
     def get_user_hand(self, user_id):
         user = self.find_user(user_id)
-        hand = Hand.query.filter(Hand.game_id == self.id, Hand.user_id == user.id).first()
+        hand = self.hands.filter(Hand.user_id == user.id).first()
         return hand
 
     def get_user_heap(self, user_id):
         user = self.find_user(user_id)
-        heap = Heap.query.filter(Heap.game_id == self.id, Heap.user_id == user.id).first()
+        heap = self.heaps.filter(Heap.user_id == user.id).first()
         return heap
 
     def get_user_status(self, user_id):
@@ -101,7 +105,7 @@ class Game(db.Model):
         chosen_column = None
         for column in self.columns:
             last_card = sorted(column.cards, key=lambda card: card.number)[-1]
-            diff_temp = Card.find(chosen_card.card_id).number - last_card.number
+            diff_temp = chosen_card.card.number - last_card.number
             if diff_temp > 0 and diff_temp < diff:
                 chosen_column = column
                 diff = diff_temp
@@ -231,6 +235,10 @@ class Game(db.Model):
             raise SixQuiPrendException('Not in game', 400)
         if user.is_game_owner(self):
             self.remove_owner(user.id)
+        db.session.delete(self.get_user_hand(user.id))
+        db.session.delete(self.get_user_heap(user.id))
+        if user.get_chosen_card(self.id):
+            db.session.delete(user.get_chosen_card(self.id))
         self.users.remove(user)
         db.session.add(self)
         db.session.commit()

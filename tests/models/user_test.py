@@ -67,8 +67,18 @@ class UserTestCase(unittest.TestCase):
         db.session.commit()
         return hand
 
-    def create_heap(self, game_id, user_id):
+    def create_column(self, game_id, cards=[]):
+        column = Column(game_id=game_id)
+        for card in cards:
+            column.cards.append(card)
+        db.session.add(column)
+        db.session.commit()
+        return column
+
+    def create_heap(self, game_id, user_id, cards=[]):
         heap = Heap(game_id=game_id, user_id=user_id)
+        for card in cards:
+            heap.cards.append(card)
         db.session.add(heap)
         db.session.commit()
         return heap
@@ -124,10 +134,26 @@ class UserTestCase(unittest.TestCase):
 
     def test_delete(self):
         user = self.create_user()
+        game = self.create_game(users=[user])
+        card1 = self.create_card()
+        card2 = self.create_card()
+        card3 = self.create_card()
+        card4 = self.create_card()
+        column = self.create_column(game_id=game.id, cards=[card1])
+        user_hand = self.create_hand(game_id=game.id, user_id=user.id, cards=[card2])
+        user_heap = self.create_heap(game_id=game.id, user_id=user.id, cards=[card3])
+        chosen_card = self.create_chosen_card(game_id=game.id, user_id=user.id,
+                card_id=card4.id)
         User.delete(user.id)
         with self.assertRaises(SixQuiPrendException) as e:
             User.find(user.id)
             assert e.code == 404
+        assert Card.find(card1.id) == card1
+        assert Game.find(game.id) == game
+        assert Column.query.get(column.id) == column
+        assert Hand.query.get(user_hand.id) == None
+        assert Heap.query.get(user_heap.id) == None
+        assert ChosenCard.query.get(chosen_card.id) == None
 
     def test_register(self):
         user = User.register('toto', 'titi')

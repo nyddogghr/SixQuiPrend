@@ -73,8 +73,10 @@ class GameTestCase(unittest.TestCase):
         db.session.commit()
         return column
 
-    def create_heap(self, game_id, user_id):
+    def create_heap(self, game_id, user_id, cards=[]):
         heap = Heap(game_id=game_id, user_id=user_id)
+        for card in cards:
+            heap.cards.append(card)
         db.session.add(heap)
         db.session.commit()
         return heap
@@ -372,11 +374,27 @@ class GameTestCase(unittest.TestCase):
         assert game.status == Game.STATUS_CREATED
 
     def test_delete(self):
-        game = self.create_game()
+        user = self.create_user()
+        game = self.create_game(users=[user])
+        card1 = self.create_card()
+        card2 = self.create_card()
+        card3 = self.create_card()
+        card4 = self.create_card()
+        column = self.create_column(game_id=game.id, cards=[card1])
+        user_hand = self.create_hand(game_id=game.id, user_id=user.id, cards=[card2])
+        user_heap = self.create_heap(game_id=game.id, user_id=user.id, cards=[card3])
+        chosen_card = self.create_chosen_card(game_id=game.id, user_id=user.id,
+                card_id=card4.id)
         Game.delete(game.id)
+        assert Card.find(card1.id) == card1
+        assert User.find(user.id) == user
+        assert Column.query.get(column.id) == None
+        assert Hand.query.get(user_hand.id) == None
+        assert Heap.query.get(user_heap.id) == None
         with self.assertRaises(SixQuiPrendException) as e:
             Game.find(game.id)
             assert e.code == 404
+        assert ChosenCard.query.get(chosen_card.id) == None
 
     def test_setup_game(self):
         populate_db()
@@ -458,12 +476,27 @@ class GameTestCase(unittest.TestCase):
             assert e.code == 400
 
     def test_remove_user(self):
-        user1 = self.create_user()
+        user = self.create_user()
         user2 = self.create_user()
-        game = self.create_game(users=[user1, user2])
+        game = self.create_game(users=[user, user2])
+        card1 = self.create_card()
+        card2 = self.create_card()
+        card3 = self.create_card()
+        card4 = self.create_card()
+        column = self.create_column(game_id=game.id, cards=[card1])
+        user_hand = self.create_hand(game_id=game.id, user_id=user.id, cards=[card2])
+        user_heap = self.create_heap(game_id=game.id, user_id=user.id, cards=[card3])
+        chosen_card = self.create_chosen_card(game_id=game.id, user_id=user.id,
+                card_id=card4.id)
         assert game.users.count() == 2
-        game.remove_user(user1)
+        game.remove_user(user)
         assert game.users.all() == [user2]
+        assert Card.find(card1.id) == card1
+        assert User.find(user.id) == user
+        assert Column.query.get(column.id) == column
+        assert Hand.query.get(user_hand.id) == None
+        assert Heap.query.get(user_heap.id) == None
+        assert ChosenCard.query.get(chosen_card.id) == None
 
     def test_remove_user_errors(self):
         # User not in game

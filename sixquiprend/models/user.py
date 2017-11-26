@@ -22,9 +22,12 @@ class User(db.Model):
     authenticated = db.Column(db.Boolean, default=False)
     active = db.Column(db.Boolean, default=app.config['ACTIVATE_ALL_USERS'])
     urole = db.Column(db.Integer, default=PLAYER_ROLE)
-    chosen_cards = db.relationship('ChosenCard', backref='user', lazy='dynamic')
-    hands = db.relationship('Hand', backref='user', lazy='dynamic')
-    heaps = db.relationship('Heap', backref='user', lazy='dynamic')
+    chosen_cards = db.relationship('ChosenCard', backref='user', lazy='dynamic',
+            cascade="all, delete, delete-orphan")
+    hands = db.relationship('Hand', backref='user', lazy='dynamic',
+            cascade="all, delete, delete-orphan")
+    heaps = db.relationship('Heap', backref='user', lazy='dynamic',
+            cascade="all, delete, delete-orphan")
     games = db.relationship('Game', secondary=user_games,
             backref=db.backref('users', lazy='dynamic'))
 
