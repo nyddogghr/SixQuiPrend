@@ -263,7 +263,7 @@ class Game(db.Model):
     def place_card(self, current_user_id):
         self.check_is_started()
         if not self.can_place_card(current_user_id):
-            raise SixQuiPrendException('No chosen card to place', 422)
+            raise SixQuiPrendException('Cannot place a card right now', 422)
         chosen_card = self.chosen_cards.join(Card).order_by(Card.number.asc()).first()
         user_game_heap = self.get_user_heap(chosen_card.user_id)
         try:
@@ -289,8 +289,8 @@ class Game(db.Model):
         self.check_is_owner(current_user_id)
         self.check_is_started()
         if self.is_resolving_turn:
-            raise SixQuiPrendException('Cannot choose cards for bots while card \
-            is being placed', 400)
+            raise SixQuiPrendException('Cannot choose cards for bots while card is being placed',
+                    400)
         if not self.can_choose_cards_for_bots(current_user_id):
             raise SixQuiPrendException('Bots have already chosen cards', 400)
         for bot in self.users.filter(User.urole == User.ROLE_BOT).order_by(User.id).all():
