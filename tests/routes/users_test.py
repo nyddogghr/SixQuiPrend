@@ -69,7 +69,7 @@ class UsersTestCase(unittest.TestCase):
         if result['user'] != {}:
             return User.find(result['user']['id'])
 
-    def create_user(self, active=True, urole=User.PLAYER_ROLE):
+    def create_user(self, active=True, urole=User.ROLE_PLAYER):
         username = 'User #'+str(User.query.count())
         password = 'Password'
         user = User(username=username,

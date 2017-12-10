@@ -37,7 +37,7 @@ class UserTestCase(unittest.TestCase):
         db.session.remove()
         db.drop_all()
 
-    def create_user(self, urole=User.PLAYER_ROLE, active=True,
+    def create_user(self, urole=User.ROLE_PLAYER, active=True,
             authenticated=True):
         username = 'User #'+str(User.query.count())
         password = 'Password'

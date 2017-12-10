@@ -37,7 +37,7 @@ class GameTestCase(unittest.TestCase):
         db.session.remove()
         db.drop_all()
 
-    def create_user(self, urole=User.PLAYER_ROLE):
+    def create_user(self, urole=User.ROLE_PLAYER):
         username = 'User #'+str(User.query.count())
         password = 'Password'
         user = User(username=username,
@@ -128,7 +128,7 @@ class GameTestCase(unittest.TestCase):
     def test_find_column(self):
         game = self.create_game()
         column = self.create_column(game.id)
-        assert game.find_column(column.id)
+        assert game.find_column(column.id) == column
 
     def test_find_column_errors(self):
         # Column not in game
@@ -140,17 +140,60 @@ class GameTestCase(unittest.TestCase):
 
     def test_find_chosen_card(self):
         user = self.create_user()
-        game = self.create_game()
+        game = self.create_game(users=[user])
         chosen_card = self.create_chosen_card(game.id, user.id)
-        assert game.find_chosen_card(chosen_card.id)
+        assert game.find_chosen_card(chosen_card.id) == chosen_card
 
     def test_find_chosen_card_errors(self):
-        # Chosen card not in game
+        # User not in game
+        game = self.create_game()
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.find_chosen_card(-1)
+            assert e.exception.code == 404
+        # User has no chosen card for this game
         user = self.create_user()
         game = self.create_game()
         chosen_card = self.create_chosen_card(game.id, user.id)
         with self.assertRaises(SixQuiPrendException) as e:
             game.find_chosen_card(-1)
+            assert e.exception.code == 404
+
+    def test_get_user_hand(self):
+        user = self.create_user()
+        game = self.create_game(users=[user])
+        user_hand = self.create_hand(game.id, user.id)
+        assert game.get_user_hand(user.id) == user_hand
+
+    def test_get_user_hand_errors(self):
+        # User not in game
+        game = self.create_game()
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.get_user_hand(-1)
+            assert e.exception.code == 404
+        # User has no hand for this game
+        user = self.create_user()
+        game = self.create_game(users=[user])
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.get_user_hand(user.id)
+            assert e.exception.code == 404
+
+    def test_get_user_heap(self):
+        user = self.create_user()
+        game = self.create_game(users=[user])
+        user_heap = self.create_heap(game.id, user.id)
+        assert game.get_user_heap(user.id) == user_heap
+
+    def test_get_user_heap_errors(self):
+        # User not in game
+        game = self.create_game()
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.get_user_heap(-1)
+            assert e.exception.code == 404
+        # User has no heap for this game
+        user = self.create_user()
+        game = self.create_game(users=[user])
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.get_user_heap(user.id)
             assert e.exception.code == 404
 
     def test_get_user_status(self):
@@ -159,12 +202,26 @@ class GameTestCase(unittest.TestCase):
         assert game.get_user_status(user.id)['has_chosen_card'] == False
         assert game.get_user_status(user.id)['needs_to_choose_column'] == False
 
+    def test_get_user_status_errors(self):
+        # User not in game
+        game = self.create_game()
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.get_user_status(-1)
+            assert e.exception.code == 404
+
     def test_get_user_chosen_card(self):
         user = self.create_user()
         game = self.create_game(users=[user])
         card = self.create_card()
         chosen_card = self.create_chosen_card(game.id, user.id, card.id)
         assert game.get_user_chosen_card(user.id) == chosen_card
+
+    def test_get_user_chosen_card_errors(self):
+        # User not in game
+        game = self.create_game()
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.get_user_chosen_card(-1)
+            assert e.exception.code == 404
 
     def test_check_is_started(self):
         game = self.create_game(status=Game.STATUS_STARTED)
@@ -179,7 +236,7 @@ class GameTestCase(unittest.TestCase):
 
     def test_check_is_owner(self):
         user = self.create_user()
-        game = self.create_game(owner_id=user.id)
+        game = self.create_game(users=[user], owner_id=user.id)
         game.check_is_owner(user.id)
 
     def test_check_is_owner_errors(self):
@@ -250,6 +307,15 @@ class GameTestCase(unittest.TestCase):
         assert suitable_column == column_two
 
     def test_get_suitable_column_errors(self):
+        # Chosen card does not belong to this game
+        user = self.create_user()
+        game1 = self.create_game()
+        game2 = self.create_game()
+        chosen_card = self.create_chosen_card(game1.id, user.id)
+        with self.assertRaises(SixQuiPrendException) as e:
+            game1.get_suitable_column(chosen_card)
+            assert e.exception.code == 422
+        # No suitable column
         user = self.create_user()
         game = self.create_game(users=[user])
         card_one = self.create_card(1, 1)
@@ -289,6 +355,11 @@ class GameTestCase(unittest.TestCase):
         assert chosen_cards == [chosen_card2]
 
     def test_get_chosen_cards_for_current_user_errors(self):
+        # User is not in game
+        game = self.create_game()
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.get_chosen_cards_for_current_user(-1)
+            assert e.exception.code == 404
         # User has no chosen card and card is not being placed
         user1 = self.create_user()
         user2 = self.create_user()
@@ -320,6 +391,18 @@ class GameTestCase(unittest.TestCase):
         chosen_card2 = self.create_chosen_card(game.id, user2.id, card_five.id)
         assert game.user_needs_to_choose_column(user1.id) == True
         assert game.user_needs_to_choose_column(user2.id) == False
+
+    def test_user_needs_to_choose_column_errors(self):
+        # Game not started
+        game = self.create_game(status=Game.STATUS_CREATED)
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.get_chosen_cards_for_current_user(-1)
+            assert e.exception.code == 422
+        # User not in game
+        game = self.create_game(status=Game.STATUS_STARTED)
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.get_chosen_cards_for_current_user(-1)
+            assert e.exception.code == 404
 
     def test_can_place_card(self):
         user1 = self.create_user()
@@ -353,6 +436,19 @@ class GameTestCase(unittest.TestCase):
         chosen_cardb = self.create_chosen_card(game.id, bot.id, card_one.id)
         assert game.can_place_card(user1.id) == True
 
+    def test_can_place_card_errors(self):
+        # User not in game
+        game = self.create_game(status=Game.STATUS_STARTED)
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.can_place_card(-1)
+            assert e.exception.code == 404
+        # User not game owner
+        user = self.create_user()
+        game = self.create_game(status=Game.STATUS_STARTED, users=[user])
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.can_place_card(user.id)
+            assert e.exception.code == 403
+
     def test_can_choose_cards_for_bots(self):
         user = self.create_user()
         bot1 = self.create_user(urole=User.ROLE_BOT)
@@ -374,6 +470,19 @@ class GameTestCase(unittest.TestCase):
         db.session.add(game)
         db.session.commit()
         assert game.can_choose_cards_for_bots(user.id) == False
+
+    def test_can_choose_cards_for_bots_errors(self):
+        # User not in game
+        game = self.create_game(status=Game.STATUS_STARTED)
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.can_choose_cards_for_bots(-1)
+            assert e.exception.code == 404
+        # User not game owner
+        user = self.create_user()
+        game = self.create_game(status=Game.STATUS_STARTED, users=[user])
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.can_choose_cards_for_bots(user.id)
+            assert e.exception.code == 403
 
     ################################################################################
     ## Actions
@@ -409,6 +518,12 @@ class GameTestCase(unittest.TestCase):
             assert e.exception.code == 404
         assert ChosenCard.query.get(chosen_card.id) == None
 
+    def test_delete_errors(self):
+        # Game not found
+        with self.assertRaises(SixQuiPrendException) as e:
+            Game.delete(-1)
+            assert e.exception.code == 404
+
     def test_setup_game(self):
         populate_db()
         user = self.create_user()
@@ -426,6 +541,11 @@ class GameTestCase(unittest.TestCase):
         assert len(game.get_user_heap(user.id).cards) == 0
 
     def test_setup_game_errors(self):
+        # User not in game
+        game = self.create_game(Game.STATUS_CREATED)
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.setup(-1)
+            assert e.exception.code == 404
         # User is not owner
         user = self.create_user()
         game = self.create_game(Game.STATUS_CREATED, users=[user])
@@ -474,18 +594,45 @@ class GameTestCase(unittest.TestCase):
     def test_add_bot(self):
         bot = self.create_user(urole=User.ROLE_BOT)
         user = self.create_user()
-        game = self.create_game(status=Game.STATUS_CREATED, owner_id=user.id)
-        assert game.users.count() == 0
+        game = self.create_game(status=Game.STATUS_CREATED, users=[user],
+                owner_id=user.id)
+        assert game.users.count() == 1
         game.add_bot(bot.id, user.id)
-        assert game.users.all() == [bot]
+        assert game.users.count() == 2
+        assert game.users.all() == [bot, user]
 
     def test_add_bot_errors(self):
+        # User not in game
+        game = self.create_game(Game.STATUS_CREATED)
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.add_bot(-1, -1)
+            assert e.exception.code == 404
+        # User is not owner
+        user = self.create_user()
+        game = self.create_game(Game.STATUS_CREATED, users=[user])
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.add_bot(-1, user.id)
+            assert e.exception.code == 400
+        # Bot not found
+        user = self.create_user()
+        game = self.create_game(status=Game.STATUS_CREATED, owner_id=user.id)
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.add_bot(-1, user.id)
+            assert e.exception.code == 404
         # User not a bot
-        not_bot = self.create_user(urole=User.PLAYER_ROLE)
+        not_bot = self.create_user(urole=User.ROLE_PLAYER)
         user = self.create_user()
         game = self.create_game(status=Game.STATUS_CREATED, owner_id=user.id)
         with self.assertRaises(SixQuiPrendException) as e:
             game.add_bot(not_bot.id, user.id)
+            assert e.exception.code == 400
+        # Bot already in game
+        bot = self.create_user(urole=User.ROLE_BOT)
+        user = self.create_user()
+        game = self.create_game(status=Game.STATUS_CREATED, users=[user, bot],
+                owner_id=user.id)
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.add_bot(bot.id, user.id)
             assert e.exception.code == 400
 
     def test_remove_user(self):
@@ -528,6 +675,11 @@ class GameTestCase(unittest.TestCase):
         assert game.owner_id == user2.id
 
     def test_remove_owner_errors(self):
+        # User not in game
+        game = self.create_game()
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.remove_user(-1)
+            assert e.exception.code == 404
         # User not owner
         user1 = self.create_user()
         user2 = self.create_user()

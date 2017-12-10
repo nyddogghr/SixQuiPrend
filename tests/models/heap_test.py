@@ -36,7 +36,7 @@ class HeapTestCase(unittest.TestCase):
         db.session.remove()
         db.drop_all()
 
-    def create_user(self, urole=User.PLAYER_ROLE):
+    def create_user(self, urole=User.ROLE_PLAYER):
         username = 'User #'+str(User.query.count())
         password = 'Password'
         user = User(username=username,
