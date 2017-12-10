@@ -1,36 +1,58 @@
 'use strict';
 
-app.controller('GameController', ['$rootScope', '$scope', '$http', 'growl',
-  function($rootScope, $scope, $http, growl) {
+app.controller('GameController', ['$rootScope', '$scope', '$http', '$interval', 'growl',
+  function($rootScope, $scope, $http, $interval, growl) {
 
     // Variables
 
     $scope.ui = {
-      display_users: false
+      display_users: true
     };
     $scope.game_statuses = ['created', 'started', 'ended'];
+    $scope.user_roles = ['bot', 'user', 'admin'];
 
     // Methods
 
     // Game info
 
-    $scope.get_game = function(game_id) {
-      $scope.current_game_user_heaps = {};
-      $scope.current_game_users = {};
-      $scope.current_game_user_chosen_cards = {};
-      $http.get('/games/' + game_id)
+    $scope.get_game = function() {
+      $http.get('/games/' + $scope.game_id)
       .then(function(response) {
         $scope.current_game = response.data.game;
         $rootScope.is_in_game = true;
-        if ($scope.current_game.owner_id == $rootScope.current_user.id
-          && $scope.current_game.status == 0)
-          $scope.get_available_bots_for_current_game();
+        switch($scope.current_game.status) {
+          case $scope.game_statuses.indexOf('created'):
+            if ($scope.current_game.owner_id == $rootScope.current_user.id)
+              $scope.get_available_bots();
+            break;
+          case $scope.game_statuses.indexOf('started'):
+            $scope.get_columns();
+            angular.forEach($scope.current_game.users, function(user) {
+              $scope.get_user_status(user.id);
+              $scope.get_user_heap(user.id);
+            });
+            if ($scope.is_in_current_game()) {
+              $scope.get_current_user_hand();
+            }
+            break;
+        }
       }, function(response) {
         growl.addErrorMessage(response.data.error);
       });
     };
 
-    $scope.get_available_bots_for_current_game = function() {
+    $scope.get_game_status = function() {
+      $http.get('/games/' + $scope.game_id + '/status')
+      .then(function(response) {
+        $scope.can_place_card = response.data.can_place_card;
+        $scope.can_choose_cards_for_bots = response.data.can_choose_cards_for_bots;
+        $scope.is_resolving_turn = response.data.is_resolving_turn;
+      }, function(response) {
+        growl.addErrorMessage(response.data.error);
+      });
+    };
+
+    $scope.get_available_bots = function() {
       $http.get('/games/' + $scope.current_game.id + '/users/bots')
       .then(function(response) {
         $scope.available_bots = response.data.available_bots;
@@ -39,37 +61,39 @@ app.controller('GameController', ['$rootScope', '$scope', '$http', 'growl',
       });
     };
 
-    $scope.get_current_game_columns = function() {
+    $scope.get_columns = function() {
       $http.get('/games/' + $scope.current_game.id + '/columns')
       .then(function(response) {
-        $scope.current_game_columns = response.data.columns;
+        $scope.columns = response.data.columns;
       }, function(response) {
         growl.addErrorMessage(response.data.error);
       });
     };
 
-    $scope.get_current_game_hand = function() {
-      $http.get('/games/' + $scope.current_game.id + '/users/current/hand')
-      .then(function(response) {
-        $scope.current_game_user_hand = response.data.hand;
-      }, function(response) {
-        growl.addErrorMessage(response.data.error);
-      });
-    };
-
-    $scope.get_current_game_user_game_status = function(user_id) {
+    $scope.get_user_status = function(user_id) {
       $http.get('/games/' + $scope.current_game.id + '/users/' + user_id + '/status')
       .then(function(response) {
-        $scope.current_game_users[user_id] = response.data.user;
+        $scope.users[user_id] = response.data.user;
+        if (user_id == $rootScope.current_user.id && response.data.user.has_chosen_card)
+          $scope.get_chosen_cards();
       }, function(response) {
         growl.addErrorMessage(response.data.error);
       });
     };
 
-    $scope.get_current_game_user_game_heap = function(user_id) {
+    $scope.get_user_heap = function(user_id) {
       $http.get('/games/' + $scope.current_game.id + '/users/' + user_id + '/heap')
       .then(function(response) {
-        $scope.current_game_user_heaps[user_id] = response.data.heap.cards;
+        $scope.user_heaps[user_id] = response.data.heap.cards;
+      }, function(response) {
+        growl.addErrorMessage(response.data.error);
+      });
+    };
+
+    $scope.get_current_user_hand = function() {
+      $http.get('/games/' + $scope.current_game.id + '/users/current/hand')
+      .then(function(response) {
+        $scope.hand = response.data.hand;
       }, function(response) {
         growl.addErrorMessage(response.data.error);
       });
@@ -79,46 +103,27 @@ app.controller('GameController', ['$rootScope', '$scope', '$http', 'growl',
       $http.get('/games/' + $scope.current_game.id + '/chosen_cards')
       .then(function(response) {
         angular.forEach(response.data.chosen_cards, function(chosen_card) {
-          $scope.current_game_user_chosen_cards[chosen_card.user_id] = chosen_card.card;
+          $scope.user_chosen_cards[chosen_card.user_id] = chosen_card.card;
         });
+        $scope.get_game_status();
       }, function(response) {
         growl.addErrorMessage(response.data.error);
       });
-    };
-
-    $scope.update_current_game_status = function() {
-      $scope.get_current_game_columns();
-      $scope.get_chosen_cards();
-      angular.forEach($scope.current_game.users, function(user) {
-        $scope.get_current_game_user_game_status(user.id);
-        $scope.get_current_game_user_game_heap(user.id);
-      });
-      if ($scope.is_in_current_game())
-        $scope.get_current_game_hand();
     };
 
     // Game actions
 
-    $scope.add_bot_to_current_game = function(bot_id) {
+    $scope.add_bot = function(bot_id) {
       $http.post('/games/' + $scope.current_game.id + '/users/' + bot_id + '/add')
       .then(function(response) {
         $scope.current_game = response.data.game;
-        $scope.get_available_bots_for_current_game();
+        $scope.get_available_bots();
       }, function(response) {
         growl.addErrorMessage(response.data.error);
       });
     };
 
-    $scope.start_current_game = function() {
-      $http.put('/games/' + $scope.current_game.id + '/start')
-      .then(function(response) {
-        $scope.get_game(response.data.game.id);
-      }, function(response) {
-        growl.addErrorMessage(response.data.error);
-      });
-    };
-
-    $scope.leave_current_game = function() {
+    $scope.leave_game = function() {
       if (find_by_key($scope.current_game.users, 'id', $rootScope.current_user.id) == null) {
         $scope.current_game = null;
         $rootScope.is_in_game = false;
@@ -126,13 +131,23 @@ app.controller('GameController', ['$rootScope', '$scope', '$http', 'growl',
         $http.put('/games/' + $scope.current_game.id + '/leave')
         .then(function(response) {
           $scope.current_game = null;
+          $rootScope.is_in_game = false;
         }, function(response) {
           growl.addErrorMessage(response.data.error);
         });
       }
     };
 
-    $scope.hide_current_game = function() {
+    $scope.start_game = function() {
+      $http.put('/games/' + $scope.current_game.id + '/start')
+      .then(function(response) {
+        $scope.get_game();
+      }, function(response) {
+        growl.addErrorMessage(response.data.error);
+      });
+    };
+
+    $scope.hide_game = function() {
       $scope.current_game = null;
       $rootScope.is_in_game = false;
     };
@@ -140,32 +155,41 @@ app.controller('GameController', ['$rootScope', '$scope', '$http', 'growl',
     $scope.choose_card = function(card_id) {
       $http.post('/games/' + $scope.current_game.id + '/card/' + card_id)
       .then(function(response) {
-        $scope.get_current_game_user_game_status($scope.current_user.id);
+        $scope.get_user_status($scope.current_user.id);
+        $scope.get_chosen_cards();
+        $scope.get_game_status();
       }, function(response) {
         growl.addErrorMessage(response.data.error);
       });
     };
 
-    $scope.resolve_turn = function() {
-      $http.post('/games/' + $scope.current_game.id + '/turns/resolve')
+    $scope.choose_cards_for_bots = function() {
+      $http.post('/games/' + $scope.current_game.id + '/bots/choose_cards')
       .then(function(response) {
-        $scope.update_current_game_status();
+        $scope.get_game();
+        $scope.get_game_status();
       }, function(response) {
         growl.addErrorMessage(response.data.error);
       });
     };
 
-    // Events
+    $scope.place_card = function() {
+      $http.post('/games/' + $scope.current_game.id + '/cards/place')
+      .then(function(response) {
+        $scope.get_game();
+      }, function(response) {
+        growl.addErrorMessage(response.data.error);
+      });
+    };
 
-    $scope.$watch('current_game', function() {
-      if ($scope.current_game && $scope.current_game.status > 0) {
-        $scope.update_current_game_status();
-      }
-    });
-
-    $scope.$on('game_chosen', function(event, game_id) {
-      $scope.get_game(game_id);
-    });
+    $scope.choose_column = function(column_id) {
+      $http.post('/games/' + $scope.current_game.id + '/columns/' + column_id + '/choose')
+      .then(function(response) {
+        $scope.get_game();
+      }, function(response) {
+        growl.addErrorMessage(response.data.error);
+      });
+    };
 
     // UI
 
@@ -175,7 +199,7 @@ app.controller('GameController', ['$rootScope', '$scope', '$http', 'growl',
     };
 
     $scope.get_heap_sum = function(user_id) {
-      var user_heap = $scope.current_game_user_heaps[user_id];
+      var user_heap = $scope.user_heaps[user_id];
       if (!user_heap)
         return 0;
       else
@@ -183,21 +207,28 @@ app.controller('GameController', ['$rootScope', '$scope', '$http', 'growl',
     };
 
     $scope.has_chosen_card = function(user_id) {
-      return $scope.current_game_users[user_id] && $scope.current_game_users[user_id].has_chosen_card;
+      return $scope.users[user_id] && $scope.users[user_id].has_chosen_card;
     };
 
-    $scope.can_resolve_turn = function() {
-      if (!$scope.is_in_current_game())
-        return false;
-      if (!$scope.current_game.owner_id == $rootScope.current_user.id)
-        return false;
-      if (!$scope.has_chosen_card($rootScope.current_user.id))
-        if ($scope.current_game_user_chosen_cards.length > 0)
-          return true;
-        else
-          return false;
-      return true;
+    $scope.needs_to_choose_column = function(user_id) {
+      return $scope.users[user_id] && $scope.users[user_id].needs_to_choose_column;
     };
 
+    // Events
+
+    $scope.$on('game_chosen', function(event, game_id) {
+      $scope.game_id = game_id;
+      $scope.user_heaps = {};
+      $scope.users = {};
+      $scope.user_chosen_cards = {};
+      $scope.get_game();
+    });
+
+    $interval(function() {
+      if ($scope.current_game &&
+        $scope.current_game.owner_id == $rootScope.current_user.id &&
+        $scope.game_statuses.indexOf('started') == $scope.current_game.status)
+        $scope.get_game_status();
+    }, 2000);
   }
 ]);
