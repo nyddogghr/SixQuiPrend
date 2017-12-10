@@ -10,7 +10,7 @@ user_games = db.Table('user_games',
 
 class User(db.Model):
     ROLE_BOT = 0
-    PLAYER_ROLE = 1
+    ROLE_PLAYER = 1
     ROLE_ADMIN = 2
 
     id = db.Column(db.Integer, primary_key=True)
@@ -18,7 +18,7 @@ class User(db.Model):
     password = db.Column(db.String(255), nullable=False, server_default='')
     authenticated = db.Column(db.Boolean, default=False)
     active = db.Column(db.Boolean, default=app.config['ACTIVATE_ALL_USERS'])
-    urole = db.Column(db.Integer, default=PLAYER_ROLE)
+    urole = db.Column(db.Integer, default=ROLE_PLAYER)
     chosen_cards = db.relationship('ChosenCard', backref='user', lazy='dynamic',
             cascade="all, delete, delete-orphan")
     hands = db.relationship('Hand', backref='user', lazy='dynamic',
