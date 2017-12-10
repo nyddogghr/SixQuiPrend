@@ -111,7 +111,7 @@ class UserTestCase(unittest.TestCase):
         user = self.create_user()
         with self.assertRaises(SixQuiPrendException) as e:
             User.find(-1)
-            assert e.code == 404
+            assert e.exception.code == 404
 
     ################################################################################
     ## Actions
@@ -132,13 +132,19 @@ class UserTestCase(unittest.TestCase):
         User.delete(user.id)
         with self.assertRaises(SixQuiPrendException) as e:
             User.find(user.id)
-            assert e.code == 404
+            assert e.exception.code == 404
         assert Card.find(card1.id) == card1
         assert Game.find(game.id) == game
         assert Column.query.get(column.id) == column
         assert Hand.query.get(user_hand.id) == None
         assert Heap.query.get(user_heap.id) == None
         assert ChosenCard.query.get(chosen_card.id) == None
+
+    def test_delete_errors(self):
+        # User not found
+        with self.assertRaises(SixQuiPrendException) as e:
+            User.delete(-1)
+            assert e.exception.code == 404
 
     def test_register(self):
         user = User.register('toto', 'titi')
@@ -149,28 +155,33 @@ class UserTestCase(unittest.TestCase):
         user = self.create_user()
         with self.assertRaises(SixQuiPrendException) as e:
             User.register(user.username, 'titi')
-            assert e.code == 400
+            assert e.exception.code == 400
 
     def test_login(self):
         user = User.register('toto', 'titi')
         assert User.login('toto', 'titi') == user
+        assert user.is_anonymous() == False
 
     def test_login_errors(self):
+        # User is not found
+        with self.assertRaises(SixQuiPrendException) as e:
+            User.login('totototototo', 'tototototo')
+            assert e.exception.code == 404
         # User is a bot
         user = self.create_user(urole=User.ROLE_BOT)
         with self.assertRaises(SixQuiPrendException) as e:
             User.login(user.username, 'Password')
-            assert e.code == 403
+            assert e.exception.code == 403
         # User is not active
         user = self.create_user(active=False)
         with self.assertRaises(SixQuiPrendException) as e:
             User.login(user.username, 'Password')
-            assert e.code == 403
+            assert e.exception.code == 403
         # Password is invalid
         user = self.create_user()
         with self.assertRaises(SixQuiPrendException) as e:
             User.login(user.username, 'NotPassword')
-            assert e.code == 400
+            assert e.exception.code == 400
 
     def test_logout(self):
         user = self.create_user(authenticated=True)

@@ -50,7 +50,7 @@ class CardTestCase(unittest.TestCase):
         # Card not found
         with self.assertRaises(SixQuiPrendException) as e:
             Card.find(-1)
-            assert e.code == 404
+            assert e.exception.code == 404
 
 if __name__ == '__main__':
     unittest.main()
