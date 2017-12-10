@@ -164,13 +164,15 @@ class GamesTestCase(unittest.TestCase):
     def test_add_bot_to_game(self):
         self.login()
         game = self.create_game(status=Game.STATUS_CREATED,
+                users=[self.get_current_user()],
                 owner_id=self.get_current_user().id)
         bot = self.create_user(urole=User.ROLE_BOT)
         rv = self.app.post('/games/' + str(game.id) + '/users/' + str(bot.id) +
                 '/add')
         assert rv.status_code == 201
         game = json.loads(rv.data)['game']
-        assert game['users'] == [bot.serialize()]
+        assert game['users'] == [self.get_current_user().serialize(),
+                bot.serialize()]
 
     def test_leave_game(self):
         self.login()

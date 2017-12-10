@@ -170,12 +170,6 @@ class GameTestCase(unittest.TestCase):
         with self.assertRaises(SixQuiPrendException) as e:
             game.get_user_hand(-1)
             assert e.exception.code == 404
-        # User has no hand for this game
-        user = self.create_user()
-        game = self.create_game(users=[user])
-        with self.assertRaises(SixQuiPrendException) as e:
-            game.get_user_hand(user.id)
-            assert e.exception.code == 404
 
     def test_get_user_heap(self):
         user = self.create_user()
@@ -188,12 +182,6 @@ class GameTestCase(unittest.TestCase):
         game = self.create_game()
         with self.assertRaises(SixQuiPrendException) as e:
             game.get_user_heap(-1)
-            assert e.exception.code == 404
-        # User has no heap for this game
-        user = self.create_user()
-        game = self.create_game(users=[user])
-        with self.assertRaises(SixQuiPrendException) as e:
-            game.get_user_heap(user.id)
             assert e.exception.code == 404
 
     def test_get_user_status(self):

@@ -59,15 +59,11 @@ class Game(db.Model):
     def get_user_hand(self, user_id):
         user = self.find_user(user_id)
         hand = self.hands.filter(Hand.user_id == user.id).first()
-        if not hand:
-            raise SixQuiPrendException('User has no hand for this game', 404)
         return hand
 
     def get_user_heap(self, user_id):
         user = self.find_user(user_id)
         heap = self.heaps.filter(Heap.user_id == user_id).first()
-        if not heap:
-            raise SixQuiPrendException('User has no heap for this game', 404)
         return heap
 
     def get_user_status(self, user_id):
