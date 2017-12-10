@@ -743,6 +743,18 @@ class GameTestCase(unittest.TestCase):
         app.config['COLUMN_CARD_SIZE'] = column_card_size
 
     def test_place_card_errors(self):
+        # User not in game
+        game = self.create_game()
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.place_card(-1)
+            assert e.exception.code == 404
+        # User not owner
+        user1 = self.create_user()
+        user2 = self.create_user()
+        game = self.create_game(users=[user1, user2], owner_id=user1.id)
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.place_card(user2.id)
+            assert e.exception.code == 400
         # No chosen card to place
         user1 = self.create_user()
         user2 = self.create_user()
@@ -805,6 +817,18 @@ class GameTestCase(unittest.TestCase):
         assert game.get_user_hand(bot2.id).cards == [card3]
 
     def test_choose_cards_for_bots_errors(self):
+        # User not in game
+        game = self.create_game()
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.choose_cards_for_bots(-1)
+            assert e.exception.code == 404
+        # User not owner
+        user1 = self.create_user()
+        user2 = self.create_user()
+        game = self.create_game(users=[user1, user2], owner_id=user1.id)
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.choose_cards_for_bots(user2.id)
+            assert e.exception.code == 400
         # Game is not STARTED
         user = self.create_user()
         game = self.create_game(status=Game.STATUS_CREATED,
@@ -844,6 +868,11 @@ class GameTestCase(unittest.TestCase):
         assert chosen_card.card_id == card.id
 
     def test_choose_card_for_user_errors(self):
+        # User not in game
+        game = self.create_game()
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.choose_card_for_user(-1, -1)
+            assert e.exception.code == 404
         # Card is being placed
         user = self.create_user()
         card = self.create_card(1, 1)
@@ -883,6 +912,31 @@ class GameTestCase(unittest.TestCase):
         assert chosen_column.cards == [card_one]
         assert new_user_heap.cards == [card_two]
 
+    def test_choose_column_for_user_errors(self):
+        # Game not started
+        game = self.create_game(status=Game.STATUS_CREATED)
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.choose_column_for_user(-1, -1)
+            assert e.exception.code == 400
+        # User not in game
+        game = self.create_game()
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.choose_column_for_user(-1, -1)
+            assert e.exception.code == 404
+        # Column not in game
+        user = self.create_user()
+        game = self.create_game(users=[user])
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.choose_column_for_user(user.id, -1)
+            assert e.exception.code == 404
+        # User has no chosen card for the game
+        use = self.create_user()
+        game = self.create_game(users=[user])
+        column = self.create_column(game.id)
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.choose_column_for_user(user.id, column.id)
+            assert e.exception.code == 404
+
     def test_update_status(self):
         # Users still have chosen cards to place
         user = self.create_user()
@@ -912,6 +966,13 @@ class GameTestCase(unittest.TestCase):
         game.update_status()
         assert game.status == Game.STATUS_FINISHED
         assert game.is_resolving_turn == False
+
+    def test_update_status_errors(self):
+        # Game not started
+        game = self.create_game(status=Game.STATUS_CREATED)
+        with self.assertRaises(SixQuiPrendException) as e:
+            game.update_status()
+            assert e.exception.code == 400
 
 if __name__ == '__main__':
     unittest.main()
