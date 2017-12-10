@@ -299,7 +299,7 @@ class GameTestCase(unittest.TestCase):
         user = self.create_user()
         game1 = self.create_game()
         game2 = self.create_game()
-        chosen_card = self.create_chosen_card(game1.id, user.id)
+        chosen_card = self.create_chosen_card(game2.id, user.id)
         with self.assertRaises(SixQuiPrendException) as e:
             game1.get_suitable_column(chosen_card)
             assert e.exception.code == 422
@@ -603,14 +603,14 @@ class GameTestCase(unittest.TestCase):
             assert e.exception.code == 400
         # Bot not found
         user = self.create_user()
-        game = self.create_game(status=Game.STATUS_CREATED, owner_id=user.id)
+        game = self.create_game(status=Game.STATUS_CREATED, users=[user], owner_id=user.id)
         with self.assertRaises(SixQuiPrendException) as e:
             game.add_bot(-1, user.id)
             assert e.exception.code == 404
         # User not a bot
         not_bot = self.create_user(urole=User.ROLE_PLAYER)
         user = self.create_user()
-        game = self.create_game(status=Game.STATUS_CREATED, owner_id=user.id)
+        game = self.create_game(status=Game.STATUS_CREATED, users=[user], owner_id=user.id)
         with self.assertRaises(SixQuiPrendException) as e:
             game.add_bot(not_bot.id, user.id)
             assert e.exception.code == 400
