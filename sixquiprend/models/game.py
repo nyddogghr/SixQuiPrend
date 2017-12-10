@@ -49,6 +49,7 @@ class Game(db.Model):
         return column
 
     def find_chosen_card(self, user_id):
+        user = self.find_user(user_id)
         chosen_card = self.chosen_cards.filter(ChosenCard.user_id ==
                 user_id).first()
         if not chosen_card:
@@ -58,11 +59,15 @@ class Game(db.Model):
     def get_user_hand(self, user_id):
         user = self.find_user(user_id)
         hand = self.hands.filter(Hand.user_id == user.id).first()
+        if not hand:
+            raise SixQuiPrendException('User has no hand for this game', 404)
         return hand
 
     def get_user_heap(self, user_id):
         user = self.find_user(user_id)
-        heap = self.heaps.filter(Heap.user_id == user.id).first()
+        heap = self.heaps.filter(Heap.user_id == user_id).first()
+        if not heap:
+            raise SixQuiPrendException('User has no heap for this game', 404)
         return heap
 
     def get_user_status(self, user_id):
@@ -73,6 +78,7 @@ class Game(db.Model):
         return user_dict
 
     def get_user_chosen_card(self, user_id):
+        self.find_user(user_id)
         return self.chosen_cards.filter(ChosenCard.user_id == user_id).first()
 
     def check_is_started(self):
@@ -80,6 +86,7 @@ class Game(db.Model):
             raise SixQuiPrendException('Game not started', 400)
 
     def check_is_owner(self, user_id):
+        self.find_user(user_id)
         if self.owner_id != user_id:
             raise SixQuiPrendException('User is not game owner', 403)
 
@@ -104,6 +111,9 @@ class Game(db.Model):
         return lowest_value_column
 
     def get_suitable_column(self, chosen_card):
+        if chosen_card.game_id != self.id:
+            raise SixQuiPrendException('Chosen card does not belong to the game',
+                    422)
         diff = 9000
         chosen_column = None
         for column in self.columns:
@@ -125,6 +135,7 @@ class Game(db.Model):
         return available_bots
 
     def get_chosen_cards_for_current_user(self, current_user_id):
+        self.find_user(current_user_id)
         if not self.is_resolving_turn:
             chosen_cards = self.chosen_cards.filter(ChosenCard.user_id == current_user_id)
             if chosen_cards.count() == 0:
@@ -231,6 +242,8 @@ class Game(db.Model):
         bot = User.find(bot_id)
         if bot.get_urole() != User.ROLE_BOT:
             raise SixQuiPrendException('Can only add a bot', 400)
+        if bot in self.users.all():
+            raise SixQuiPrendException('Bot already in game', 400)
         self.add_user(bot)
 
     def remove_user(self, user):
@@ -249,8 +262,7 @@ class Game(db.Model):
         db.session.commit()
 
     def remove_owner(self, user_id):
-        if self.owner_id != user_id:
-            raise SixQuiPrendException('User is not game owner', 400)
+        self.check_is_owner(user_id)
         new_owner = self.users.filter(User.id != user_id,
                 User.urole != User.ROLE_BOT).first()
         if not new_owner:
@@ -306,7 +318,7 @@ class Game(db.Model):
             raise SixQuiPrendException('Cannot choose a card while resolving a turn', 400)
         if self.get_user_chosen_card(user_id):
             raise SixQuiPrendException('User has already chosen a card', 400)
-        hand = self.get_user_hand(user.id)
+        hand = self.get_user_hand(user_id)
         if card_id == None:
             index = random.randrange(len(hand.cards))
             card = hand.cards.pop(index)
