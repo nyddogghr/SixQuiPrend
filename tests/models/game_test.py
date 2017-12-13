@@ -852,6 +852,8 @@ class GameTestCase(unittest.TestCase):
         assert chosen_card == None
         game.choose_card_for_user(user.id, card.id)
         assert len(game.get_user_hand(user.id).cards) == 0
+        db.session.refresh(game)
+        assert game.is_resolving_turn == True
         chosen_card = game.get_user_chosen_card(user.id)
         assert chosen_card.card_id == card.id
 

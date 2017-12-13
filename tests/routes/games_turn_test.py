@@ -139,7 +139,6 @@ class GamesTurnTestCase(unittest.TestCase):
         assert rv.status_code == 200
         response_game_status = json.loads(rv.data)
         assert response_game_status['can_place_card'] == False
-        assert response_game_status['is_resolving_turn'] == False
         assert response_game_status['can_choose_cards_for_bots'] == False
 
     def test_choose_card_for_game(self):

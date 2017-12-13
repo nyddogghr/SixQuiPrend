@@ -34,18 +34,31 @@
             {{current_user.id == user.id ? '(you)' : ''}}
             </label>
             <ul>
-              <li>
+              <li ng-if="current_game.status > 0">
                 <label>
                   Heap sum:
                 </label>
                 {{get_heap_sum(user.id)}}
+                <button ng-click="toggle_display_heap(user.id)"
+                        class="{{ui.display_heap[user.id] ? 'toggled': ''}}"
+                        ng-if="current_game.status == 2">
+                  Display heap
+                </button>
+                <ul ng-if="ui.display_heap[user.id]">
+                  <li ng-repeat="card in user_heaps[user.id]">
+                    {{card.number}}
+                    <br>
+                    {{"&#128004;".repeat(card.cow_value)}}
+                  </li>
+                </ul>
               </li>
-              <li ng-if="users[user.id].needs_to_choose_column &&
-                  user.urole != user_roles.indexOf('bot')"
+              <li ng-if="current_game.status == 1 &&
+                needs_to_choose_column(user.id) &&
+                user.urole != user_roles.indexOf('bot')"
                 class="user_must_choose">
                 Needs to choose a column for his card!
               </li>
-              <li ng-if="has_chosen_card(user.id)">
+              <li ng-if="current_game.status == 1 && has_chosen_card(user.id) ">
                 <label>
                   Chosen card:
                 </label>
@@ -57,7 +70,8 @@
                   hidden (turn not resolving)
                 </span>
               </li>
-              <li ng-if="!has_chosen_card(user.id)">
+              <li ng-if="current_game.status == 1 && !has_chosen_card(user.id)
+                && !is_resolving_turn">
                 <label>
                   Hasn't chosen a card yet
                 </label>
@@ -82,7 +96,7 @@
         </button>
       </div>
     </div>
-    <div ng-if="current_game.status > 0">
+    <div ng-if="current_game.status == 1">
       <div ng-if="is_in_current_game()">
         Your hand:
         <div class="container columns">
@@ -95,7 +109,7 @@
           </div>
         </div>
         <div ng-if="!has_chosen_card(current_user.id) &&
-          !can_place_card">
+          !is_resolving_turn">
           Choose a card by clicking on it
         </div>
       </div>
@@ -110,10 +124,15 @@
         </div>
       </div>
       <div>
+        <span ng-if="needs_to_choose_column(current_user.id)"
+          class="user_must_choose">
+          Choose a column to replace by clicking on it
+          <br>
+        </span>
         Board:
         <div class="container columns">
           <div ng-repeat="column in columns"
-            class="{{users[user.id].needs_to_choose_column ? 'chosable': ''}}"
+            class="{{needs_to_choose_column(current_user.id) ? 'chosable': ''}}"
             ng-click="choose_column(column.id)">
             <div ng-repeat="card in column.cards" class="card">
               {{card.number}}

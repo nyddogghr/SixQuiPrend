@@ -11,9 +11,7 @@ def get_game_status(game_id):
     game = Game.find(game_id)
     can_place_card = game.can_place_card(current_user.id)
     can_choose_cards_for_bots = game.can_choose_cards_for_bots(current_user.id)
-    is_resolving_turn = game.is_resolving_turn
     return jsonify(can_place_card=can_place_card,
-            is_resolving_turn=is_resolving_turn,
             can_choose_cards_for_bots=can_choose_cards_for_bots)
 
 @app.route('/games/<int:game_id>/card/<int:card_id>', methods=['POST'])

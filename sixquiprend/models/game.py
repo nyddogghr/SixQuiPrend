@@ -367,4 +367,5 @@ class Game(db.Model):
                 'users': self.users.all(),
                 'owner_id': self.owner_id,
                 'status': self.status,
+                'is_resolving_turn': self.is_resolving_turn
                 }
