@@ -370,9 +370,14 @@ class GameTestCase(unittest.TestCase):
         assert game.user_needs_to_choose_column(user1.id) == False
         assert game.user_needs_to_choose_column(user2.id) == False
         chosen_card1 = self.create_chosen_card(game.id, user1.id, card_two.id)
-        assert game.user_needs_to_choose_column(user1.id) == True
+        assert game.user_needs_to_choose_column(user1.id) == False
         assert game.user_needs_to_choose_column(user2.id) == False
         chosen_card2 = self.create_chosen_card(game.id, user2.id, card_one.id)
+        assert game.user_needs_to_choose_column(user1.id) == False
+        assert game.user_needs_to_choose_column(user2.id) == False
+        game.is_resolving_turn = True
+        db.session.add(game)
+        db.session.commit()
         assert game.user_needs_to_choose_column(user1.id) == False
         assert game.user_needs_to_choose_column(user2.id) == True
         db.session.delete(chosen_card2)

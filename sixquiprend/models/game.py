@@ -140,6 +140,8 @@ class Game(db.Model):
 
     def user_needs_to_choose_column(self, user_id):
         self.check_is_started()
+        if not self.is_resolving_turn:
+            return False
         user = self.find_user(user_id)
         if self.get_user_chosen_card(user_id) == None:
             return False
