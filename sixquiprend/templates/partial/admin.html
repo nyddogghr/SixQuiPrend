@@ -25,11 +25,11 @@
           Activate
         </button>
         <button ng-if="ui.user_active == 'true'"
-        ng-click="deactivate_user(user.id)" ng-disabled="user.urole == 1 ||
+        ng-click="deactivate_user(user.id)" ng-disabled="user.urole == 0 ||
         user.id == current_user.id">
           Deactivate
         </button>
-        <button ng-click="delete_user(user.id)" ng-disabled="user.urole == 1 ||
+        <button ng-click="delete_user(user.id)" ng-disabled="user.urole == 0 ||
         user.id == current_user.id">
           Delete
         </button>
